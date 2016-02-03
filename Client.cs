@@ -54,24 +54,9 @@ namespace botbot
                                 r["text"] = "fuck";
                                 await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(r.ToString(Formatting.None))), WebSocketMessageType.Text, true, CancellationToken.None);
                             }
-                            Debug.WriteLine(o["text"]);
                         }
                     }
-                    Debug.WriteLine(read);
                 }
-                //StringBuilder sb = new StringBuilder();
-                //string responseString = string.Empty;
-                //if (response.MessageType == WebSocketMessageType.Text)
-                //{
-                //    string tmp = Encoding.UTF8.GetString(buffer.Array);
-                //    Debug.WriteLine(tmp);
-                //    sb.Append(tmp);
-                //    if (response.EndOfMessage)
-                //    {
-                //        responseString = sb.ToString();
-                //        Debug.WriteLine(responseString);
-                //    }
-                //}
             }
         }
     }
