@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.WebSockets;
@@ -13,12 +14,20 @@ namespace botbot
     public class Client
     {
         ClientWebSocket webSocket;
+        static bool responded;
+        List<string> pingResponses = new List<string>(new string[]
+        { "pong", "hello", "hi", "what's up!", "I am always alive.", "hubot is an inferior bot.",
+        "botbot at your service!", "lol", "fuck"});
+
+        event EventHandler<SlackMessageEventArgs> MessageReceived;
         
         public Client()
         {
             webSocket = new ClientWebSocket();
+            responded = false;
+            MessageReceived += Client_MessageReceived;
         }
-        
+
         public async Task Connect(Uri uri)
         {
             await webSocket.ConnectAsync(uri, CancellationToken.None);
@@ -44,20 +53,61 @@ namespace botbot
                     {
                         if ((string)o["type"] == "message")
                         {
-                            string text = (string)o["text"];
-                            if (text == "botbot ping")
-                            {
-                                JObject r = new JObject();
-                                r["id"] = 1;
-                                r["type"] = "message";
-                                r["channel"] = "C0911CW3C";
-                                r["text"] = "fuck";
-                                await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(r.ToString(Formatting.None))), WebSocketMessageType.Text, true, CancellationToken.None);
-                            }
+                            SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
+                            newMessage.Message = o;
+                            MessageReceived(this, newMessage);
                         }
                     }
                 }
             }
+        }
+
+        private async void Client_MessageReceived(object sender, SlackMessageEventArgs e)
+        {
+            Debug.WriteLine("recieved message");
+            string text = (string)e.Message["text"];
+            string channel = (string)e.Message["channel"];
+            if (text.ToLower() == "botbot ping")
+            {
+                await SendSlackMessage(GetRandomPingResponse(), channel);
+            }
+            else if (text.ToLower() == "hubot ping")
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30));
+                if (!responded)
+                {
+                    await SendSlackMessage("Hubot is dead. I killed him.", channel);
+                }
+                responded = false;
+            }
+            else if (text.ToLower() == "pong")
+            {
+                if ((string)e.Message["user"] == "U09763X54")
+                {
+                    responded = true;
+                }
+            }
+        }
+
+        public string GetRandomPingResponse()
+        {
+            Random random = new Random();
+            return pingResponses[random.Next(pingResponses.Count)];
+        }
+
+        public async Task SendSlackMessage(string message, string channel)
+        {
+            JObject o = new JObject();
+            o["id"] = 1;
+            o["type"] = "message";
+            o["channel"] = channel;
+            o["text"] = message;
+            await SendMessage(o.ToString(Formatting.None));
+        }
+
+        public async Task SendMessage(string message)
+        {
+            await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message)), WebSocketMessageType.Text, true, CancellationToken.None);
         }
     }
 }
