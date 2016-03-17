@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Net.Http;
 using Microsoft.AspNet.Mvc;
 using Newtonsoft.Json.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace botbot.Controllers
 {

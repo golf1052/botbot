@@ -13,6 +13,7 @@ namespace botbot
 {
     public class Startup
     {
+        public static ILoggerFactory logFactory = new LoggerFactory();
         public Startup(IHostingEnvironment env)
         {
             // Set up configuration sources.
@@ -34,6 +35,8 @@ namespace botbot
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public async void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
+            Startup.logFactory.AddConsole(Configuration.GetSection("Logging"));
+            Startup.logFactory.AddDebug();
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 

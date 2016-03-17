@@ -8,11 +8,19 @@ using System.IO;
 using System.Diagnostics;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 
 namespace botbot
 {
     public class Client
     {
+        public static ILogger logger;
+        static Client()
+        {
+            logger = Startup.logFactory.CreateLogger<Client>();
+            responded = false;
+        }
+        
         ClientWebSocket webSocket;
         static bool responded;
         List<string> pingResponses = new List<string>(new string[]
@@ -21,17 +29,63 @@ namespace botbot
 
         event EventHandler<SlackMessageEventArgs> MessageReceived;
         
+        Dictionary<string, int> channelTypeCounts;
+        
         public Client()
         {
             webSocket = new ClientWebSocket();
-            responded = false;
             MessageReceived += Client_MessageReceived;
+            channelTypeCounts = new Dictionary<string, int>();
         }
 
         public async Task Connect(Uri uri)
         {
             await webSocket.ConnectAsync(uri, CancellationToken.None);
+            SendTypings("C0911CW3C");
+            // slack knows if you try to type into two channels at once, and then kills you for it
+            //SendTypings("G0L8C7Q6L");
+            CheckTypings("C0911CW3C");
             await Receive();
+        }
+        
+        public async Task SendTypings(string channel)
+        {
+            while (true)
+            {
+                Random random = new Random();
+                int sendTypingFor = random.Next(1, 11);
+                for (int i = 0; i < sendTypingFor; i++)
+                {
+                    await SendTyping(channel);
+                    await Task.Delay(TimeSpan.FromSeconds(3));
+                }
+                int waitFor = random.Next(5, 61);
+                await Task.Delay(TimeSpan.FromMinutes(waitFor));
+            }
+        }
+        
+        public async Task CheckTypings(string channel)
+        {
+            while (true)
+            {
+                if (channelTypeCounts.ContainsKey(channel))
+                {
+                    if (channelTypeCounts[channel] >= 1)
+                    {
+                        channelTypeCounts[channel] = 0;
+                        await SendSlackMessage("_several people are typing_", channel);
+                        await Task.Delay(TimeSpan.FromHours(2));
+                    }
+                    else
+                    {
+                        await Task.Delay(TimeSpan.FromMilliseconds(100));
+                    }
+                }
+                else
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+                }
+            }
         }
         
         public async Task Receive()
@@ -51,11 +105,21 @@ namespace botbot
                     JObject o = JObject.Parse(read);
                     if (o["type"] != null)
                     {
-                        if ((string)o["type"] == "message")
+                        string messageType = (string)o["type"];
+                        if (messageType == "message")
                         {
                             SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
                             newMessage.Message = o;
                             MessageReceived(this, newMessage);
+                        }
+                        else if (messageType == "user_typing")
+                        {
+                            string channel = (string)o["channel"];
+                            if (!channelTypeCounts.ContainsKey(channel))
+                            {
+                                channelTypeCounts.Add(channel, 0);
+                            }
+                            channelTypeCounts[channel]++;
                         }
                     }
                 }
@@ -64,7 +128,6 @@ namespace botbot
 
         private async void Client_MessageReceived(object sender, SlackMessageEventArgs e)
         {
-            Debug.WriteLine("recieved message");
             string text = (string)e.Message["text"];
             string channel = (string)e.Message["channel"];
             if (text.ToLower() == "botbot ping")
@@ -102,6 +165,15 @@ namespace botbot
             o["type"] = "message";
             o["channel"] = channel;
             o["text"] = message;
+            await SendMessage(o.ToString(Formatting.None));
+        }
+        
+        public async Task SendTyping(string channel)
+        {
+            JObject o = new JObject();
+            o["id"] = 1;
+            o["type"] = "typing";
+            o["channel"] = channel;
             await SendMessage(o.ToString(Formatting.None));
         }
 
