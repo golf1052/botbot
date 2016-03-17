@@ -46,7 +46,7 @@ namespace botbot
             SendTypings("C0911CW3C");
             // slack knows if you try to type into two channels at once, and then kills you for it
             //SendTypings("G0L8C7Q6L");
-            CheckTypings("C0911CW3C");
+            //CheckTypings("C0911CW3C");
             await Receive();
         }
         
