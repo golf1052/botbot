@@ -30,12 +30,14 @@ namespace botbot
         event EventHandler<SlackMessageEventArgs> MessageReceived;
         
         Dictionary<string, int> channelTypeCounts;
+        Dictionary<string, int> secondsWithoutTyping;
         
         public Client()
         {
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
             channelTypeCounts = new Dictionary<string, int>();
+            secondsWithoutTyping = new Dictionary<string, int>();
         }
 
         public async Task Connect(Uri uri)
@@ -70,7 +72,7 @@ namespace botbot
             {
                 if (channelTypeCounts.ContainsKey(channel))
                 {
-                    if (channelTypeCounts[channel] >= 1)
+                    if (channelTypeCounts[channel] >= 2)
                     {
                         channelTypeCounts[channel] = 0;
                         await SendSlackMessage("_several people are typing_", channel);
@@ -78,6 +80,12 @@ namespace botbot
                     }
                     else
                     {
+                        secondsWithoutTyping[channel]++;
+                        if (secondsWithoutTyping[channel] >= 20)
+                        {
+                            channelTypeCounts[channel] = 0;
+                            secondsWithoutTyping[channel] = 0;
+                        }
                         await Task.Delay(TimeSpan.FromMilliseconds(100));
                     }
                 }
@@ -117,9 +125,11 @@ namespace botbot
                             string channel = (string)o["channel"];
                             if (!channelTypeCounts.ContainsKey(channel))
                             {
+                                secondsWithoutTyping.Add(channel, 0);
                                 channelTypeCounts.Add(channel, 0);
                             }
                             channelTypeCounts[channel]++;
+                            secondsWithoutTyping[channel] = 0;
                         }
                     }
                 }
