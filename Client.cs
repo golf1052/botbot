@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.WebSockets;
@@ -9,18 +10,27 @@ using System.Diagnostics;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
+using golf1052.SlackAPI;
+using golf1052.SlackAPI.Events;
+using golf1052.SlackAPI.Objects;
+using golf1052.SlackAPI.Other;
 
 namespace botbot
 {
     public class Client
     {
+        public const string BaseUrl = "https://slack.com/api/";
         public static ILogger logger;
+
         static Client()
         {
             logger = Startup.logFactory.CreateLogger<Client>();
             responded = false;
         }
-        
+
+        private SlackCore slackCore;
+        private List<SlackUser> slackUsers;
         ClientWebSocket webSocket;
         static bool responded;
         List<string> pingResponses = new List<string>(new string[]
@@ -32,17 +42,20 @@ namespace botbot
         Dictionary<string, int> channelTypeCounts;
         Dictionary<string, int> secondsWithoutTyping;
         
-        public Client()
+        public Client(string accessToken)
         {
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
             channelTypeCounts = new Dictionary<string, int>();
             secondsWithoutTyping = new Dictionary<string, int>();
+            slackCore = new SlackCore(accessToken);
+            slackUsers = new List<SlackUser>();
         }
 
         public async Task Connect(Uri uri)
         {
             await webSocket.ConnectAsync(uri, CancellationToken.None);
+            slackUsers = await slackCore.UsersList();
             SendTypings("C0911CW3C");
             // slack knows if you try to type into two channels at once, and then kills you for it
             //SendTypings("G0L8C7Q6L");
@@ -160,12 +173,86 @@ namespace botbot
                     responded = true;
                 }
             }
+            else if (text.ToLower() == "botbot reactions")
+            {
+                await CalculateReactions(channel);
+            }
+        }
+
+        private async Task CalculateReactions(string channel)
+        {
+            List<SlackEvent> reactions = new List<SlackEvent>();
+            foreach (SlackUser user in slackUsers)
+            {
+                reactions.AddRange(await slackCore.ReactionsList(user.Id, allItems: true));
+            }
+            List<SlackEvent> text = reactions.Where(q =>
+            {
+                Message m = q as Message;
+                return m.Text == "Try again";
+            }).ToList();
+            Dictionary<string, Dictionary<DateTime, int>> topReactions = new Dictionary<string, Dictionary<DateTime, int>>();
+            Dictionary<string, int> topR = new Dictionary<string, int>();
+            foreach (SlackEvent reaction in reactions)
+            {
+                if (reaction.Type == SlackEvent.SlackEventType.Message)
+                {
+                    Message message = reaction as Message;
+                    foreach (Reaction r in message.Reactions)
+                    {
+                        if (!topReactions.ContainsKey(r.Name))
+                        {
+                            topReactions.Add(r.Name, new Dictionary<DateTime, int>());
+                        }
+                        if (!topReactions[r.Name].ContainsKey(message.Timestamp))
+                        {
+                            topReactions[r.Name].Add(message.Timestamp, r.Count);
+                        }
+                    }
+                }
+            }
+            foreach (KeyValuePair<string, Dictionary<DateTime, int>> pair in topReactions)
+            {
+                foreach (KeyValuePair<DateTime, int> timePair in pair.Value)
+                {
+                    if (!topR.ContainsKey(pair.Key))
+                    {
+                        topR.Add(pair.Key, 0);
+                    }
+                    topR[pair.Key] += timePair.Value;
+                }
+            }
+            List<string> finalMessage = new List<string>();
+            finalMessage.Add("Top 10 reactions to messages");
+            var sortedReactions = (from entry in topR orderby entry.Value descending select entry).ToList();
+            for (int i = 0; i < 10; i++)
+            {
+                finalMessage.Add($":{sortedReactions[i].Key}: - {sortedReactions[i].Value}");
+            }
+            await SendSlackMessage(finalMessage, channel);
         }
 
         public string GetRandomPingResponse()
         {
             Random random = new Random();
             return pingResponses[random.Next(pingResponses.Count)];
+        }
+
+        public async Task SendSlackMessage(List<string> lines, string channel)
+        {
+            string message = string.Empty;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (i != lines.Count - 1)
+                {
+                    message += lines[i] += '\n';
+                }
+                else
+                {
+                    message += lines[i];
+                }
+            }
+            await SendSlackMessage(message, channel);
         }
 
         public async Task SendSlackMessage(string message, string channel)
@@ -190,6 +277,14 @@ namespace botbot
         public async Task SendMessage(string message)
         {
             await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message)), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+
+        public async Task SendApiCall(string endpoint)
+        {
+            Uri url = new Uri(BaseUrl + endpoint);
+            HttpClient client = new HttpClient();
+            HttpResponseMessage response = await client.GetAsync(url);
+            JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
         }
     }
 }

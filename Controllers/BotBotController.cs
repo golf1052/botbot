@@ -15,9 +15,10 @@ namespace botbot.Controllers
         
         public static async Task StartClient()
         {
-            BotBotController.client = new Client();
+            BotBotController.client = new Client(Secrets.Token);
+            await client.SendApiCall("reactions.list?token=" + Secrets.Token + "&full=true&count=100");
             HttpClient webClient = new HttpClient();
-            Uri uri = new Uri("https://slack.com/api/rtm.start?token=" + Secrets.Token);
+            Uri uri = new Uri(Client.BaseUrl + "rtm.start?token=" + Secrets.Token);
             HttpResponseMessage response = await webClient.GetAsync(uri);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
             await client.Connect(new Uri((string)responseObject["url"]));
