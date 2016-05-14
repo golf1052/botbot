@@ -128,7 +128,7 @@ namespace botbot
                 // send on active
                 foreach (var typing in typings)
                 {
-                    if (typing.Value.Count >= 2)
+                    if (typing.Value.Count >= 3)
                     {
                         await SendTyping(typing.Key);
                     }
@@ -231,7 +231,7 @@ namespace botbot
             {
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
-            await HandleReaction(e);
+            //await HandleReaction(e);
         }
         
         public async Task HandleReaction(SlackMessageEventArgs e)
