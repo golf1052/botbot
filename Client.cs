@@ -21,6 +21,7 @@ namespace botbot
     public class Client
     {
         public const string BaseUrl = "https://slack.com/api/";
+        public const double PsuedoRandomDistConst = 0.00380;
         public static ILogger logger;
 
         static Client()
@@ -31,35 +32,63 @@ namespace botbot
 
         private SlackCore slackCore;
         private List<SlackUser> slackUsers;
+        private List<SlackChannel> slackChannels;
         ClientWebSocket webSocket;
         static bool responded;
         List<string> pingResponses = new List<string>(new string[]
         { "pong", "hello", "hi", "what's up!", "I am always alive.", "hubot is an inferior bot.",
         "botbot at your service!", "lol", "fuck"});
+        
+        List<string> helpResponses = new List<string>(new string[]
+        {
+            "Hi I'm botbot! I don't do much...",
+            "Hi I'm botbot!",
+            "Try botbot commands!"
+        });
+        
+        List<string> commands = new List<string>(new string[]
+        {
+            "ping",
+            "reactions",
+            "help",
+            "commands"
+        });
+
+        List<string> iDontKnow = new List<string>(new string[]
+        {
+            "¯\\_(ツ)_/¯",
+            "???",
+            "?",
+            "http://i.imgur.com/u4VDi0a.gif",
+            "what?",
+            "idk man",
+            "idk"
+        });
 
         event EventHandler<SlackMessageEventArgs> MessageReceived;
+
+        // <channel, <user, timestamp>>
+        Dictionary<string, Dictionary<string, DateTime>> typings;
         
-        Dictionary<string, int> channelTypeCounts;
-        Dictionary<string, int> secondsWithoutTyping;
+        Dictionary<string, int> reactionMisses;
         
         public Client(string accessToken)
         {
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
-            channelTypeCounts = new Dictionary<string, int>();
-            secondsWithoutTyping = new Dictionary<string, int>();
             slackCore = new SlackCore(accessToken);
             slackUsers = new List<SlackUser>();
+            typings = new Dictionary<string, Dictionary<string, DateTime>>();
+            reactionMisses = new Dictionary<string, int>();
         }
 
         public async Task Connect(Uri uri)
         {
             await webSocket.ConnectAsync(uri, CancellationToken.None);
             slackUsers = await slackCore.UsersList();
-            SendTypings("C0911CW3C");
-            // slack knows if you try to type into two channels at once, and then kills you for it
-            //SendTypings("G0L8C7Q6L");
-            //CheckTypings("C0911CW3C");
+            slackChannels = await slackCore.ChannelsList(1);
+            Task.Run(() => CheckTypings());
+            Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
             await Receive();
         }
         
@@ -78,34 +107,33 @@ namespace botbot
                 await Task.Delay(TimeSpan.FromMinutes(waitFor));
             }
         }
-        
-        public async Task CheckTypings(string channel)
+
+        public async Task CheckTypings()
         {
             while (true)
             {
-                if (channelTypeCounts.ContainsKey(channel))
+                // clean stale
+                foreach (var typing in typings)
                 {
-                    if (channelTypeCounts[channel] >= 2)
+                    List<string> typingUsers = typing.Value.Keys.ToList();
+                    foreach (string user in typingUsers)
                     {
-                        channelTypeCounts[channel] = 0;
-                        await SendSlackMessage("_several people are typing_", channel);
-                        await Task.Delay(TimeSpan.FromHours(2));
-                    }
-                    else
-                    {
-                        secondsWithoutTyping[channel]++;
-                        if (secondsWithoutTyping[channel] >= 20)
+                        if (DateTime.UtcNow - typing.Value[user] >= TimeSpan.FromSeconds(3))
                         {
-                            channelTypeCounts[channel] = 0;
-                            secondsWithoutTyping[channel] = 0;
+                            typing.Value.Remove(user);
                         }
-                        await Task.Delay(TimeSpan.FromMilliseconds(100));
                     }
                 }
-                else
+
+                // send on active
+                foreach (var typing in typings)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(1));
+                    if (typing.Value.Count >= 2)
+                    {
+                        await SendTyping(typing.Key);
+                    }
                 }
+                await Task.Delay(TimeSpan.FromSeconds(1));
             }
         }
         
@@ -136,13 +164,19 @@ namespace botbot
                         else if (messageType == "user_typing")
                         {
                             string channel = (string)o["channel"];
-                            if (!channelTypeCounts.ContainsKey(channel))
+                            string user = (string)o["user"];
+                            if (!typings.ContainsKey(channel))
                             {
-                                secondsWithoutTyping.Add(channel, 0);
-                                channelTypeCounts.Add(channel, 0);
+                                typings.Add(channel, new Dictionary<string, DateTime>());
                             }
-                            channelTypeCounts[channel]++;
-                            secondsWithoutTyping[channel] = 0;
+                            if (!typings[channel].ContainsKey(user))
+                            {
+                                typings[channel].Add(user, DateTime.UtcNow);
+                            }
+                            else
+                            {
+                                typings[channel][user] = DateTime.UtcNow;
+                            }
                         }
                     }
                 }
@@ -153,9 +187,13 @@ namespace botbot
         {
             string text = (string)e.Message["text"];
             string channel = (string)e.Message["channel"];
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(channel))
+            {
+                return;
+            }
             if (text.ToLower() == "botbot ping")
             {
-                await SendSlackMessage(GetRandomPingResponse(), channel);
+                await SendSlackMessage(GetRandomFromList(pingResponses), channel);
             }
             else if (text.ToLower() == "hubot ping")
             {
@@ -168,14 +206,57 @@ namespace botbot
             }
             else if (text.ToLower() == "pong")
             {
-                if ((string)e.Message["user"] == "U09763X54")
+                if ((string)e.Message["user"] == slackUsers.First(u => u.Name == "hubot").Id)
                 {
                     responded = true;
                 }
             }
             else if (text.ToLower() == "botbot reactions")
             {
+                await SendSlackMessage("Calculating reactions count, this might take me a minute...", channel);
                 await CalculateReactions(channel);
+            }
+            else if (text.ToLower() == "botbot help")
+            {
+                await SendSlackMessage(GetRandomFromList(helpResponses), channel);
+            }
+            else if (text.ToLower() == "botbot commands")
+            {
+                foreach (string command in commands)
+                {
+                    await SendSlackMessage($"botbot {command}", channel);
+                }
+            }
+            else
+            {
+                await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
+            }
+            await HandleReaction(e);
+        }
+        
+        public async Task HandleReaction(SlackMessageEventArgs e)
+        {
+            string text = (string)e.Message["text"];
+            string channel = (string)e.Message["channel"];
+            string user = (string)e.Message["user"];
+            string ts = (string)e.Message["ts"];
+            if (user != "U0KNBSMT7")
+            {
+                return;
+            }
+            if (!reactionMisses.ContainsKey(user))
+            {
+                reactionMisses.Add(user, 1);
+            }
+            Random random = new Random();
+            if (random.NextDouble() < reactionMisses[user] * PsuedoRandomDistConst)
+            {
+                await slackCore.ReactionsAdd("deirdre", channel: channel, timestamp: ts);
+                reactionMisses[user] = 1;
+            }
+            else
+            {
+                reactionMisses[user]++;
             }
         }
 
@@ -186,11 +267,6 @@ namespace botbot
             {
                 reactions.AddRange(await slackCore.ReactionsList(user.Id, allItems: true));
             }
-            List<SlackEvent> text = reactions.Where(q =>
-            {
-                Message m = q as Message;
-                return m.Text == "Try again";
-            }).ToList();
             Dictionary<string, Dictionary<DateTime, int>> topReactions = new Dictionary<string, Dictionary<DateTime, int>>();
             Dictionary<string, int> topR = new Dictionary<string, int>();
             foreach (SlackEvent reaction in reactions)
@@ -231,11 +307,11 @@ namespace botbot
             }
             await SendSlackMessage(finalMessage, channel);
         }
-
-        public string GetRandomPingResponse()
+        
+        public T GetRandomFromList<T>(List<T> list)
         {
             Random random = new Random();
-            return pingResponses[random.Next(pingResponses.Count)];
+            return list[random.Next(list.Count)];
         }
 
         public async Task SendSlackMessage(List<string> lines, string channel)
