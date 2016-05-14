@@ -227,7 +227,7 @@ namespace botbot
                     await SendSlackMessage($"botbot {command}", channel);
                 }
             }
-            else
+            else if (text.ToLower().StartsWith("botbot "))
             {
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
