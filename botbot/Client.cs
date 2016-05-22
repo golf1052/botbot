@@ -22,11 +22,11 @@ namespace botbot
     {
         public const string BaseUrl = "https://slack.com/api/";
         public const double PsuedoRandomDistConst = 0.00380;
-        public static ILogger logger;
+        // public static ILogger logger;
 
         static Client()
         {
-            logger = Startup.logFactory.CreateLogger<Client>();
+            // logger = Startup.logFactory.CreateLogger<Client>();
             responded = false;
         }
 
