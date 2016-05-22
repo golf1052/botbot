@@ -1,9 +1,9 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "botbot", "botbot.xproj", "{4D1652BF-C945-4381-B102-22FEE91F2DE7}"
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "botbot", "botbot\botbot.xproj", "{4D1652BF-C945-4381-B102-22FEE91F2DE7}"
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "golf1052.SlackAPI", "..\SlackAPI\golf1052.SlackAPI\golf1052.SlackAPI.xproj", "{CF4F0A5E-B468-4B3E-9A68-21025EB95B90}"
 EndProject
