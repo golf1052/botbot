@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0-*",
+  "version": "1.0.0",
   "runtimeOptions": {
     "gcServer": false,
     "gcConcurrent": true
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "Microsoft.NETCore.App": {
-      "version": "1.0.0-*",
+      "version": "1.0.0-rc2-3002702",
       "type": "platform"
     },
     "Microsoft.AspNetCore.Server.IISIntegration": "1.0.0-rc2-final",
