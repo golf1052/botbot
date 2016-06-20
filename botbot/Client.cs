@@ -189,6 +189,38 @@ namespace botbot
             string channel = (string)e.Message["channel"];
             if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(channel))
             {
+                string subtype = (string)e.Message["subtype"];
+                if (string.IsNullOrEmpty(subtype))
+                {
+                    return;
+                }
+                if (subtype == "message_changed")
+                {
+                    JObject newMessage = (JObject)e.Message["message"];
+                    JArray attachments = (JArray)newMessage["attachments"];
+                    if (attachments == null)
+                    {
+                        return;
+                    }
+                    if (channel != "C0KN49JKD")
+                    {
+                        return;
+                    }
+                    foreach (JObject attachment in attachments)
+                    {
+                        string url = (string)attachment["title_link"];
+                        if (string.IsNullOrEmpty(url))
+                        {
+                            return;
+                        }
+                        string hackerNewsUrl = await HackerNewsApi.Search(url);
+                        if (hackerNewsUrl == null)
+                        {
+                            return;
+                        }
+                        await SendSlackMessage($"Here's the Hacker News link: {hackerNewsUrl}", channel);
+                    }
+                }
                 return;
             }
             if (text.ToLower() == "botbot ping")
