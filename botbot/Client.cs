@@ -141,12 +141,17 @@ namespace botbot
         {
             while (!webSocket.CloseStatus.HasValue)
             {
-                byte[] buf = new byte[1024 * 4];
-                ArraySegment<byte> buffer = new ArraySegment<byte>(buf);
                 MemoryStream stream = new MemoryStream();
                 StreamReader reader = new StreamReader(stream);
-                WebSocketReceiveResult response = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
-                stream.Write(buffer.Array, buffer.Offset, buffer.Count);
+                bool endOfData = false;
+                while (!endOfData)
+                {
+                    byte[] buf = new byte[1024];
+                    ArraySegment<byte> buffer = new ArraySegment<byte>(buf);
+                    WebSocketReceiveResult response = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
+                    stream.Write(buffer.Array, buffer.Offset, buffer.Count);
+                    endOfData = response.EndOfMessage;
+                }
                 stream.Seek(0, SeekOrigin.Begin);
                 while (!reader.EndOfStream)
                 {
