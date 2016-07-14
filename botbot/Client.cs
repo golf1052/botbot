@@ -128,7 +128,7 @@ namespace botbot
                 // send on active
                 foreach (var typing in typings)
                 {
-                    if (typing.Value.Count >= 3)
+                    if (typing.Value.Count >= 4)
                     {
                         await SendTyping(typing.Key);
                     }
