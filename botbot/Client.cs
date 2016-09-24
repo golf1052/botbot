@@ -268,6 +268,11 @@ namespace botbot
             {
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
+            bool result = PlusPlus.Check(text);
+            if (result)
+            {
+                await SendSlackMessage("matched", "G0L8C7Q6L");
+            }
             //await HandleReaction(e);
         }
         

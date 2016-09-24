@@ -34,7 +34,8 @@
     "golf1052.SlackAPI": {
       "target": "project",
       "version": "1.0.0"
-    }
+    },
+    "MongoDb.Driver": "2.3.0-rc1"
   },
   "frameworks": {
     "netcoreapp1.0": {
