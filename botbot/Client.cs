@@ -15,6 +15,7 @@ using golf1052.SlackAPI;
 using golf1052.SlackAPI.Events;
 using golf1052.SlackAPI.Objects;
 using golf1052.SlackAPI.Other;
+using MongoDB.Driver;
 
 namespace botbot
 {
@@ -22,12 +23,19 @@ namespace botbot
     {
         public const string BaseUrl = "https://slack.com/api/";
         public const double PsuedoRandomDistConst = 0.00380;
-        // public static ILogger logger;
+        public static MongoClient Mongo;
+        public static IMongoDatabase PlusPlusDatabase;
+        public static IMongoCollection<PlusPlusThing> ThingCollection;
+        public static IMongoCollection<PlusPlusLog> PlusPlusLogCollection;
 
         static Client()
         {
             // logger = Startup.logFactory.CreateLogger<Client>();
             responded = false;
+            Mongo = new MongoClient(Secrets.MongoConnectionString);
+            PlusPlusDatabase = Mongo.GetDatabase("plusplus");
+            ThingCollection = PlusPlusDatabase.GetCollection<PlusPlusThing>("things");
+            PlusPlusLogCollection = PlusPlusDatabase.GetCollection<PlusPlusLog>("log");
         }
 
         private SlackCore slackCore;
@@ -268,10 +276,10 @@ namespace botbot
             {
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
-            bool result = PlusPlus.Check(text);
-            if (result)
+            string plusPlusMessage = PlusPlus.Check(text, channel, (string)e.Message["user"]);
+            if (!string.IsNullOrEmpty(plusPlusMessage))
             {
-                await SendSlackMessage("matched", "G0L8C7Q6L");
+                await SendSlackMessage(plusPlusMessage, channel);
             }
             //await HandleReaction(e);
         }
