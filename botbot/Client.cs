@@ -47,6 +47,11 @@ namespace botbot
         { "pong", "hello", "hi", "what's up!", "I am always alive.", "hubot is an inferior bot.",
         "botbot at your service!", "lol", "fuck"});
         
+        List<string> hiResponses = new List<string>(new string[]
+        {
+            "hello", "hi", "what's up!", "sup fucker"
+        });
+
         List<string> helpResponses = new List<string>(new string[]
         {
             "Hi I'm botbot! I don't do much...",
@@ -239,6 +244,10 @@ namespace botbot
             if (text.ToLower() == "botbot ping")
             {
                 await SendSlackMessage(GetRandomFromList(pingResponses), channel);
+            }
+            else if (text.ToLower() == "hi botbot")
+            {
+                await SendSlackMessage(GetRandomFromList(hiResponses), channel);
             }
             else if (text.ToLower() == "hubot ping")
             {
