@@ -159,7 +159,7 @@ namespace botbot
                 bool endOfData = false;
                 while (!endOfData)
                 {
-                    byte[] buf = new byte[1024];
+                    byte[] buf = new byte[8192];
                     ArraySegment<byte> buffer = new ArraySegment<byte>(buf);
                     WebSocketReceiveResult response = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
                     stream.Write(buffer.Array, buffer.Offset, buffer.Count);
