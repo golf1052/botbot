@@ -109,6 +109,44 @@ namespace botbot
             Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
             await Receive();
         }
+
+        private async Task ProcessRadioArchive()
+        {
+            var files = Directory.GetFiles("radio");
+            List<long> ids = new List<long>();
+            foreach (var file in files)
+            {
+                using (StreamReader reader = new StreamReader(File.OpenRead(file)))
+                {
+                    JArray a = JArray.Load(new JsonTextReader(reader));
+                    foreach (JObject o in a)
+                    {
+                        if (o["attachments"] != null)
+                        {
+                            foreach (JObject attachment in o["attachments"])
+                            {
+                                if (attachment["from_url"] != null)
+                                {
+                                    string link = (string)attachment["from_url"];
+                                    if (link.Contains("https") && link.Contains("soundcloud"))
+                                    {
+                                        try
+                                        {
+                                            ids.Add(await soundcloud.ResolveSoundcloud(link));
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            await soundcloud.Auth();
+            await soundcloud.AddSongsToPlaylist(ids);
+        }
         
         public async Task SendTypings(string channel)
         {

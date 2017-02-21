@@ -107,7 +107,11 @@ namespace botbot
             JObject playlistObject = JObject.Parse(await playlistResponse.Content.ReadAsStringAsync());
             foreach (JObject track in playlistObject["tracks"])
             {
-                ids.Add((long)track["id"]);
+                long id = (long)track["id"];
+                if (!ids.Contains(id))
+                {
+                    ids.Add(id);
+                }
             }
             JArray tracks = new JArray();
             foreach (long id in ids)
