@@ -84,6 +84,8 @@ namespace botbot
         Dictionary<string, Dictionary<string, DateTime>> typings;
         
         Dictionary<string, int> reactionMisses;
+
+        SoundcloudApi soundcloud;
         
         public Client(string accessToken)
         {
@@ -93,6 +95,7 @@ namespace botbot
             slackUsers = new List<SlackUser>();
             typings = new Dictionary<string, Dictionary<string, DateTime>>();
             reactionMisses = new Dictionary<string, int>();
+            soundcloud = new SoundcloudApi();
         }
 
         public async Task Connect(Uri uri)
@@ -220,23 +223,41 @@ namespace botbot
                     {
                         return;
                     }
-                    if (channel != "C0KN49JKD")
+                    if (channel == "C0KN49JKD")
                     {
-                        return;
+                        foreach (JObject attachment in attachments)
+                        {
+                            string url = (string)attachment["title_link"];
+                            if (string.IsNullOrEmpty(url))
+                            {
+                                return;
+                            }
+                            string hackerNewsUrl = await HackerNewsApi.Search(url);
+                            if (hackerNewsUrl == null)
+                            {
+                                return;
+                            }
+                            await SendSlackMessage($"Here's the Hacker News link: {hackerNewsUrl}", channel);
+                        }
                     }
-                    foreach (JObject attachment in attachments)
+                    else if (channel == "C0ANB9SMV")
                     {
-                        string url = (string)attachment["title_link"];
-                        if (string.IsNullOrEmpty(url))
+                        foreach (JObject attachment in attachments)
                         {
-                            return;
+                            string link = (string)attachment["from_url"];
+                            if (link.Contains("https") && link.Contains("soundcloud"))
+                            {
+                                try
+                                {
+                                    long id = await soundcloud.ResolveSoundcloud(link);
+                                    await soundcloud.AddSongToPlaylist(id);
+                                    await SendSlackMessage($"Added {(string)attachment["title"]} to Soundcloud playlist", channel);
+                                }
+                                catch (Exception ex)
+                                {
+                                }
+                            }
                         }
-                        string hackerNewsUrl = await HackerNewsApi.Search(url);
-                        if (hackerNewsUrl == null)
-                        {
-                            return;
-                        }
-                        await SendSlackMessage($"Here's the Hacker News link: {hackerNewsUrl}", channel);
                     }
                 }
                 return;
@@ -281,6 +302,10 @@ namespace botbot
                     await SendSlackMessage($"botbot {command}", channel);
                 }
             }
+            else if (text.ToLower() == "botbot playlist")
+            {
+                await SendSlackMessage("https://soundcloud.com/golf1052/sets/botbot", channel);
+            }
             else if (text.ToLower().StartsWith("botbot "))
             {
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
@@ -291,6 +316,61 @@ namespace botbot
                 await SendSlackMessage(plusPlusMessage, channel);
             }
             //await HandleReaction(e);
+        }
+
+        public async Task<List<long>> ProcessRadio()
+        {
+            string url = $"https://slack.com/api/channels.history?token={Secrets.Token}&channel=C0ANB9SMV&count=1000";
+            HttpClient httpClient = new HttpClient();
+            HttpResponseMessage response = await httpClient.GetAsync(url);
+            JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
+            List<long> ids = new List<long>();
+            foreach (JObject o in responseObject["messages"])
+            {
+                if (o["attachments"] != null)
+                {
+                    foreach (JObject attachment in o["attachments"])
+                    {
+                        if (attachment["from_url"] != null)
+                        {
+                            string link = (string)attachment["from_url"];
+                            if (link.Contains("https") && link.Contains("soundcloud"))
+                            {
+                                try
+                                {
+                                    ids.Add(await soundcloud.ResolveSoundcloud(link));
+                                }
+                                catch (Exception ex)
+                                {
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return ids;
+        }
+
+        public async Task SoundcloudAuth()
+        {
+            string url = $"https://api.soundcloud.com/oauth2/token";
+            HttpClient httpClient = new HttpClient();
+            Dictionary<string, string> options = new Dictionary<string, string>()
+            {
+                { "client_id", Secrets.SoundcloudClientId },
+                { "client_secret", Secrets.SoundCloudClientSecret },
+                { "username", "golf1052" },
+                { "password", Secrets.SoundCloudPassword },
+                { "grant_type", "password" }
+            };
+            HttpResponseMessage response = await httpClient.PostAsync(url, new FormUrlEncodedContent(options));
+            string responseString = await response.Content.ReadAsStringAsync();
+            Debug.WriteLine(responseString);
+        }
+
+        public async Task ProcessSoundcloud(string url)
+        {
+            
         }
         
         public async Task HandleReaction(SlackMessageEventArgs e)
