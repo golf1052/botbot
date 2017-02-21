@@ -63,6 +63,7 @@ namespace botbot
         {
             "ping",
             "reactions",
+            "playlist",
             "help",
             "commands"
         });
@@ -103,6 +104,7 @@ namespace botbot
             await webSocket.ConnectAsync(uri, CancellationToken.None);
             slackUsers = await slackCore.UsersList();
             slackChannels = await slackCore.ChannelsList(1);
+            await soundcloud.Auth();
             Task.Run(() => CheckTypings());
             Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
             await Receive();
@@ -349,54 +351,6 @@ namespace botbot
                 }
             }
             return ids;
-        }
-
-        public async Task SoundcloudAuth()
-        {
-            string url = $"https://api.soundcloud.com/oauth2/token";
-            HttpClient httpClient = new HttpClient();
-            Dictionary<string, string> options = new Dictionary<string, string>()
-            {
-                { "client_id", Secrets.SoundcloudClientId },
-                { "client_secret", Secrets.SoundCloudClientSecret },
-                { "username", "golf1052" },
-                { "password", Secrets.SoundCloudPassword },
-                { "grant_type", "password" }
-            };
-            HttpResponseMessage response = await httpClient.PostAsync(url, new FormUrlEncodedContent(options));
-            string responseString = await response.Content.ReadAsStringAsync();
-            Debug.WriteLine(responseString);
-        }
-
-        public async Task ProcessSoundcloud(string url)
-        {
-            
-        }
-        
-        public async Task HandleReaction(SlackMessageEventArgs e)
-        {
-            string text = (string)e.Message["text"];
-            string channel = (string)e.Message["channel"];
-            string user = (string)e.Message["user"];
-            string ts = (string)e.Message["ts"];
-            if (user != "U0KNBSMT7")
-            {
-                return;
-            }
-            if (!reactionMisses.ContainsKey(user))
-            {
-                reactionMisses.Add(user, 1);
-            }
-            Random random = new Random();
-            if (random.NextDouble() < reactionMisses[user] * PsuedoRandomDistConst)
-            {
-                await slackCore.ReactionsAdd("deirdre", channel: channel, timestamp: ts);
-                reactionMisses[user] = 1;
-            }
-            else
-            {
-                reactionMisses[user]++;
-            }
         }
 
         private async Task CalculateReactions(string channel)
