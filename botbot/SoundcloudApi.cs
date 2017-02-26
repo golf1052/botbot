@@ -129,6 +129,35 @@ namespace botbot
             Debug.WriteLine(await response.Content.ReadAsStringAsync());
         }
 
+        public async Task FlipPlaylist()
+        {
+            List<long> ids = new List<long>();
+            HttpResponseMessage playlistResponse = await client.GetAsync(FinishUrl(AuthUrl(botbotPlaylist)));
+            JObject playlistObject = JObject.Parse(await playlistResponse.Content.ReadAsStringAsync());
+            foreach (JObject track in playlistObject["tracks"])
+            {
+                long id = (long)track["id"];
+                if (!ids.Contains(id))
+                {
+                    ids.Add(id);
+                }
+            }
+            ids.Reverse();
+            JArray tracks = new JArray();
+            foreach (long id in ids)
+            {
+                JObject o = new JObject();
+                o["id"] = id;
+                tracks.Add(o);
+            }
+            JObject playlistO = new JObject();
+            playlistO["playlist"] = new JObject();
+            playlistO["playlist"]["tracks"] = tracks;
+            StringContent content = new StringContent(playlistO.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
+            string url = FinishUrl(AuthUrl(botbotPlaylist));
+            HttpResponseMessage response = await client.PutAsync(url, content);
+        }
+
         private string FinishUrl(string url)
         {
             if (url.Contains("?"))

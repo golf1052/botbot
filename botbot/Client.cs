@@ -23,6 +23,7 @@ namespace botbot
     {
         public const string BaseUrl = "https://slack.com/api/";
         public const double PsuedoRandomDistConst = 0.00380;
+        public const string golf1052Channel = "D0L4V7E68";
         public static MongoClient Mongo;
         public static IMongoDatabase PlusPlusDatabase;
         public static IMongoCollection<PlusPlusThing> ThingCollection;
@@ -87,6 +88,7 @@ namespace botbot
         Dictionary<string, int> reactionMisses;
 
         SoundcloudApi soundcloud;
+        SpotifyApi spotify;
         
         public Client(string accessToken)
         {
@@ -97,6 +99,7 @@ namespace botbot
             typings = new Dictionary<string, Dictionary<string, DateTime>>();
             reactionMisses = new Dictionary<string, int>();
             soundcloud = new SoundcloudApi();
+            spotify = new SpotifyApi();
         }
 
         public async Task Connect(Uri uri)
@@ -107,6 +110,7 @@ namespace botbot
             await soundcloud.Auth();
             Task.Run(() => CheckTypings());
             Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
+            //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
             await Receive();
         }
 
@@ -263,7 +267,7 @@ namespace botbot
                     {
                         return;
                     }
-                    if (channel == "C0KN49JKD")
+                    if (channel == "C0KN49JKD") // tech
                     {
                         foreach (JObject attachment in attachments)
                         {
@@ -280,24 +284,9 @@ namespace botbot
                             await SendSlackMessage($"Here's the Hacker News link: {hackerNewsUrl}", channel);
                         }
                     }
-                    else if (channel == "C0ANB9SMV")
+                    else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio
                     {
-                        foreach (JObject attachment in attachments)
-                        {
-                            string link = (string)attachment["from_url"];
-                            if (link.Contains("https") && link.Contains("soundcloud"))
-                            {
-                                try
-                                {
-                                    long id = await soundcloud.ResolveSoundcloud(link);
-                                    await soundcloud.AddSongToPlaylist(id);
-                                    await SendSlackMessage($"Added {(string)attachment["title"]} to Soundcloud playlist", channel);
-                                }
-                                catch (Exception ex)
-                                {
-                                }
-                            }
-                        }
+                        await ProcessRadioAttachment(e);
                     }
                 }
                 return;
@@ -344,7 +333,29 @@ namespace botbot
             }
             else if (text.ToLower() == "botbot playlist")
             {
+                List<string> l = new List<string>()
+                {
+                    "Soundcloud: https://soundcloud.com/golf1052/sets/botbot",
+                    $"Spotify: {SpotifyApi.PlaylistUrl}"
+                };
+                await SendSlackMessage(l, channel);
+            }
+            else if (text.ToLower() == "botbot playlist soundcloud")
+            {
                 await SendSlackMessage("https://soundcloud.com/golf1052/sets/botbot", channel);
+            }
+            else if (text.ToLower() == "botbot playlist spotify")
+            {
+                await SendSlackMessage(SpotifyApi.PlaylistUrl, channel);
+            }
+            else if (text.ToLower().StartsWith("botbot code"))
+            {
+                var split = text.Split(' ');
+                if (split.Length == 3)
+                {
+                    await spotify.FinishAuth(split[2]);
+                    await SendSlackMessage("Finished Spotify auth", channel);
+                }
             }
             else if (text.ToLower().StartsWith("botbot "))
             {
@@ -356,6 +367,57 @@ namespace botbot
                 await SendSlackMessage(plusPlusMessage, channel);
             }
             //await HandleReaction(e);
+        }
+
+        async Task ProcessRadioAttachment(SlackMessageEventArgs e)
+        {
+            string text = (string)e.Message["text"];
+            string channel = (string)e.Message["channel"];
+            JObject newMessage = (JObject)e.Message["message"];
+            JArray attachments = (JArray)newMessage["attachments"];
+
+            foreach (JObject attachment in attachments)
+            {
+                string link = (string)attachment["from_url"];
+                if (link.Contains("https") && link.Contains("soundcloud"))
+                {
+                    try
+                    {
+                        long id = await soundcloud.ResolveSoundcloud(link);
+                        await soundcloud.AddSongToPlaylist(id);
+                        await SendSlackMessage($"Added {(string)attachment["title"]} to Soundcloud playlist", channel);
+                    }
+                    catch (Exception ex)
+                    {
+                    }
+                }
+                else
+                {
+                    if (link.Contains("https") && link.Contains("spotify") && link.Contains("track"))
+                    {
+                        var splitLink = link.Split('/');
+                        await spotify.AddTrackToPlaylist($"spotify:track:{splitLink[splitLink.Length - 1]}");
+                        await SendSlackMessage($"Added {(string)attachment["title"]} to Spotify playlist", channel);
+                    }
+                    else
+                    {
+                        if (attachment["title"] != null)
+                        {
+                            string title = (string)attachment["title"];
+                            if (title == "botbot")
+                            {
+                                return;
+                            }
+                            var track = await spotify.Search(title);
+                            if (track != null)
+                            {
+                                await spotify.AddTrackToPlaylist(track.Uri);
+                                await SendSlackMessage($"Added {track.ToString()} to Spotify playlist", channel);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         public async Task<List<long>> ProcessRadio()
