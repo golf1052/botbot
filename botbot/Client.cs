@@ -393,29 +393,29 @@ namespace botbot
                 }
                 else
                 {
-                    if (link.Contains("https") && link.Contains("spotify") && link.Contains("track"))
-                    {
-                        var splitLink = link.Split('/');
-                        await spotify.AddTrackToPlaylist($"spotify:track:{splitLink[splitLink.Length - 1]}");
-                        await SendSlackMessage($"Added {(string)attachment["title"]} to Spotify playlist", channel);
-                    }
-                    else
-                    {
-                        if (attachment["title"] != null)
-                        {
-                            string title = (string)attachment["title"];
-                            if (title == "botbot")
-                            {
-                                return;
-                            }
-                            var track = await spotify.Search(title);
-                            if (track != null)
-                            {
-                                await spotify.AddTrackToPlaylist(track.Uri);
-                                await SendSlackMessage($"Added {track.ToString()} to Spotify playlist", channel);
-                            }
-                        }
-                    }
+                    //if (link.Contains("https") && link.Contains("spotify") && link.Contains("track"))
+                    //{
+                    //    var splitLink = link.Split('/');
+                    //    await spotify.AddTrackToPlaylist($"spotify:track:{splitLink[splitLink.Length - 1]}");
+                    //    await SendSlackMessage($"Added {(string)attachment["title"]} to Spotify playlist", channel);
+                    //}
+                    //else
+                    //{
+                    //    if (attachment["title"] != null)
+                    //    {
+                    //        string title = (string)attachment["title"];
+                    //        if (title == "botbot")
+                    //        {
+                    //            return;
+                    //        }
+                    //        var track = await spotify.Search(title);
+                    //        if (track != null)
+                    //        {
+                    //            await spotify.AddTrackToPlaylist(track.Uri);
+                    //            await SendSlackMessage($"Added {track.ToString()} to Spotify playlist", channel);
+                    //        }
+                    //    }
+                    //}
                 }
             }
         }

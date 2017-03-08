@@ -6,11 +6,13 @@
     "tasks": [
         {
             "taskName": "build",
-            "args": [
-                ""
-            ],
+            "args": [],
             "isBuildCommand": true,
-            "problemMatcher": "$msCompile"
+            "showOutput": "silent",
+            "problemMatcher": "$msCompile",
+            "options": {
+                "cwd": "${workspaceRoot}/botbot"
+            }
         }
     ]
 }
