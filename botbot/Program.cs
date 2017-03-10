@@ -9,6 +9,7 @@ namespace botbot
         {
             var host = new WebHostBuilder()
                 .UseKestrel()
+                .UseUrls("http://127.0.0.1:8892")
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
