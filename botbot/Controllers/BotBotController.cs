@@ -13,9 +13,9 @@ namespace botbot.Controllers
     {
         public static Client client;
         
-        public static async Task StartClient()
+        public static async Task StartClient(ILogger<Client> logger)
         {
-            BotBotController.client = new Client(Secrets.Token);
+            BotBotController.client = new Client(Secrets.Token, logger);
             await client.SendApiCall("reactions.list?token=" + Secrets.Token + "&full=true&count=100");
             HttpClient webClient = new HttpClient();
             Uri uri = new Uri(Client.BaseUrl + "rtm.start?token=" + Secrets.Token);

@@ -36,8 +36,8 @@ namespace botbot
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public async void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
-            Startup.logFactory.AddConsole(Configuration.GetSection("Logging"));
-            Startup.logFactory.AddDebug();
+            //Startup.logFactory.AddConsole(Configuration.GetSection("Logging"));
+            //Startup.logFactory.AddDebug();
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
@@ -45,7 +45,7 @@ namespace botbot
 
             app.UseMvc();
             
-            await BotBotController.StartClient();
+            await BotBotController.StartClient(loggerFactory.CreateLogger<Client>());
         }
     }
 }

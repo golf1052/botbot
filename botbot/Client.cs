@@ -39,6 +39,7 @@ namespace botbot
             PlusPlusLogCollection = PlusPlusDatabase.GetCollection<PlusPlusLog>("log");
         }
 
+        private readonly ILogger logger;
         private SlackCore slackCore;
         private List<SlackUser> slackUsers;
         private List<SlackChannel> slackChannels;
@@ -90,7 +91,7 @@ namespace botbot
         SoundcloudApi soundcloud;
         SpotifyApi spotify;
         
-        public Client(string accessToken)
+        public Client(string accessToken, ILogger<Client> logger)
         {
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
@@ -100,6 +101,7 @@ namespace botbot
             reactionMisses = new Dictionary<string, int>();
             soundcloud = new SoundcloudApi();
             spotify = new SpotifyApi();
+            this.logger = logger;
         }
 
         public async Task Connect(Uri uri)
@@ -217,6 +219,7 @@ namespace botbot
                 {
                     string read = reader.ReadLine();
                     JObject o = JObject.Parse(read);
+                    logger.LogInformation(o.ToString());
                     if (o["type"] != null)
                     {
                         string messageType = (string)o["type"];
@@ -242,6 +245,10 @@ namespace botbot
                             {
                                 typings[channel][user] = DateTime.UtcNow;
                             }
+                        }
+                        else if (messageType == "user_change")
+                        {
+                            await SendSlackMessage($"{o["user"]["name"]} changed their status to {o["user"]["profile"]["status_emoji"]} {o["user"]["profile"]["status_text"]}", golf1052Channel);
                         }
                     }
                 }
