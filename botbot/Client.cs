@@ -383,7 +383,7 @@ namespace botbot
 
         async Task ProcessProfileChange(JObject responseObject)
         {
-            var userId = (string)responseObject["id"];
+            var userId = (string)responseObject["user"]["id"];
             var status = $"{responseObject["user"]["profile"]["status_emoji"]} {responseObject["user"]["profile"]["status_text"]}";
             if (StatusNotifier.HasChanged(userId, status))
             {
