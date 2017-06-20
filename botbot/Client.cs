@@ -117,7 +117,6 @@ namespace botbot
             Task.Run(() => CheckTypings());
             Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
-            await SendSlackMessage("testing", "U03FNCQL3");
             await Receive();
         }
 
