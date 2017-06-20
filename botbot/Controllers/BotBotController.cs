@@ -13,42 +13,52 @@ namespace botbot.Controllers
     public class BotBotController : Controller
     {
         public static Client client;
+        public static HttpClient httpClient;
 
         public static async Task StartClient(ILogger<Client> logger)
         {
             BotBotController.client = new Client(Secrets.Token, logger);
             await client.SendApiCall("reactions.list?token=" + Secrets.Token + "&full=true&count=100");
-            HttpClient webClient = new HttpClient();
+            httpClient = new HttpClient();
             Uri uri = new Uri(Client.BaseUrl + "rtm.start?token=" + Secrets.Token);
-            HttpResponseMessage response = await webClient.GetAsync(uri);
+            HttpResponseMessage response = await httpClient.GetAsync(uri);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
             await client.Connect(new Uri((string)responseObject["url"]));
         }
 
         [HttpPost]
-        public string SlashCommand()
+        public void SlashCommand()
         {
             RequestBody requestBody = new RequestBody(Request.Form);
+            JObject responseObject = ProcessSlashCommand(requestBody);
+            httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+        }
 
+        private JObject ProcessSlashCommand(RequestBody requestBody)
+        {
             string[] splitText = requestBody.Text.Split(' ');
+            string text = string.Empty;
             if (string.IsNullOrEmpty(requestBody.Text))
             {
-                return "¯\\_(ツ)_/¯";
+                text = "¯\\_(ツ)_/¯";
             }
             if (requestBody.Text.ToLower() == "subscribe status")
             {
                 Client.StatusNotifier.Subscribe(requestBody.UserId);
-                return "I've subscribed you to status updates.";
+                text = "I've subscribed you to status updates.";
             }
             else if (requestBody.Text.ToLower() == "unsubscribe status")
             {
                 Client.StatusNotifier.Unsubscribe(requestBody.UserId);
-                return "I've unsubscribed you to status updates.";
+                text = "I've unsubscribed you to status updates.";
             }
             else
             {
-                return "😱";
+                text = "😱";
             }
+            JObject o = new JObject();
+            o["text"] = text;
+            return o;
         }
     }
 }
