@@ -97,6 +97,7 @@ namespace botbot
         
         public Client(string accessToken, ILogger<Client> logger)
         {
+            httpClient = new HttpClient();
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
             slackCore = new SlackCore(accessToken);
