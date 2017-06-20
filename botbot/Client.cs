@@ -16,6 +16,7 @@ using golf1052.SlackAPI.Events;
 using golf1052.SlackAPI.Objects;
 using golf1052.SlackAPI.Other;
 using MongoDB.Driver;
+using botbot.Status;
 
 namespace botbot
 {
@@ -28,6 +29,7 @@ namespace botbot
         public static IMongoDatabase PlusPlusDatabase;
         public static IMongoCollection<PlusPlusThing> ThingCollection;
         public static IMongoCollection<PlusPlusLog> PlusPlusLogCollection;
+        public static StatusNotifier StatusNotifier;
 
         static Client()
         {
@@ -37,6 +39,7 @@ namespace botbot
             PlusPlusDatabase = Mongo.GetDatabase("plusplus");
             ThingCollection = PlusPlusDatabase.GetCollection<PlusPlusThing>("things");
             PlusPlusLogCollection = PlusPlusDatabase.GetCollection<PlusPlusLog>("log");
+            StatusNotifier = new StatusNotifier();
         }
 
         private readonly ILogger logger;
@@ -77,7 +80,6 @@ namespace botbot
             "?",
             "http://i.imgur.com/u4VDi0a.gif",
             "what?",
-            "idk man",
             "idk"
         });
 
@@ -90,6 +92,8 @@ namespace botbot
 
         SoundcloudApi soundcloud;
         SpotifyApi spotify;
+
+        HttpClient httpClient;
         
         public Client(string accessToken, ILogger<Client> logger)
         {
@@ -113,6 +117,7 @@ namespace botbot
             Task.Run(() => CheckTypings());
             Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
+            await SendSlackMessage("testing", "U03FNCQL3");
             await Receive();
         }
 
@@ -248,7 +253,7 @@ namespace botbot
                         }
                         else if (messageType == "user_change")
                         {
-                            await SendSlackMessage($"{o["user"]["name"]} changed their status to {o["user"]["profile"]["status_emoji"]} {o["user"]["profile"]["status_text"]}", golf1052Channel);
+                            await ProcessProfileChange(o);
                         }
                     }
                 }
@@ -376,6 +381,44 @@ namespace botbot
             //await HandleReaction(e);
         }
 
+        async Task ProcessProfileChange(JObject responseObject)
+        {
+            var userId = (string)responseObject["id"];
+            var status = $"{responseObject["user"]["profile"]["status_emoji"]} {responseObject["user"]["profile"]["status_text"]}";
+            if (StatusNotifier.HasChanged(userId, status))
+            {
+                HttpResponseMessage imResponse = await httpClient.GetAsync($"https://api.slack.com/api/im.list?token={Secrets.Token}");
+                JObject imList = JObject.Parse(await imResponse.Content.ReadAsStringAsync());
+                var subscriptions = StatusNotifier.GetAllSubscriptions();
+                foreach (var subscription in subscriptions)
+                {
+                    if (!subscription.Subscribed)
+                    {
+                        continue;
+                    }
+                    var dmChannel = FindDmChannel(subscription.UserId, (JArray)imList["ims"]);
+                    if (string.IsNullOrEmpty(dmChannel))
+                    {
+                        continue;
+                    }
+                    await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", dmChannel);
+                }
+            }
+            StatusNotifier.SaveStatus(userId, status);
+        }
+
+        private string FindDmChannel(string userId, JArray imList)
+        {
+            foreach (JObject im in imList)
+            {
+                if ((string)im["user"] == userId)
+                {
+                    return (string)im["id"];
+                }
+            }
+            return null;
+        }
+
         async Task ProcessRadioAttachment(SlackMessageEventArgs e)
         {
             string text = (string)e.Message["text"];
@@ -430,7 +473,6 @@ namespace botbot
         public async Task<List<long>> ProcessRadio()
         {
             string url = $"https://slack.com/api/channels.history?token={Secrets.Token}&channel=C0ANB9SMV&count=1000";
-            HttpClient httpClient = new HttpClient();
             HttpResponseMessage response = await httpClient.GetAsync(url);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
             List<long> ids = new List<long>();
@@ -558,8 +600,7 @@ namespace botbot
         public async Task SendApiCall(string endpoint)
         {
             Uri url = new Uri(BaseUrl + endpoint);
-            HttpClient client = new HttpClient();
-            HttpResponseMessage response = await client.GetAsync(url);
+            HttpResponseMessage response = await httpClient.GetAsync(url);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
         }
     }
