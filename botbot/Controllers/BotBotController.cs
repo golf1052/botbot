@@ -44,13 +44,11 @@ namespace botbot.Controllers
             }
             if (requestBody.Text.ToLower() == "subscribe status")
             {
-                Client.StatusNotifier.Subscribe(requestBody.UserId);
-                text = "I've subscribed you to status updates.";
+                text = "I've subscribed you to status updates.\nThis also doesn't do anything anymore.";
             }
             else if (requestBody.Text.ToLower() == "unsubscribe status")
             {
-                Client.StatusNotifier.Unsubscribe(requestBody.UserId);
-                text = "I've unsubscribed you to status updates.";
+                text = "I've unsubscribed you to status updates.\nThis also doesn't do anything anymore.";
             }
             else
             {

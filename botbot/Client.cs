@@ -387,22 +387,7 @@ namespace botbot
             var status = $"{responseObject["user"]["profile"]["status_emoji"]} {responseObject["user"]["profile"]["status_text"]}";
             if (StatusNotifier.HasChanged(userId, status))
             {
-                HttpResponseMessage imResponse = await httpClient.GetAsync($"https://api.slack.com/api/im.list?token={Secrets.Token}");
-                JObject imList = JObject.Parse(await imResponse.Content.ReadAsStringAsync());
-                var subscriptions = StatusNotifier.GetAllSubscriptions();
-                foreach (var subscription in subscriptions)
-                {
-                    if (!subscription.Subscribed)
-                    {
-                        continue;
-                    }
-                    var dmChannel = FindDmChannel(subscription.UserId, (JArray)imList["ims"]);
-                    if (string.IsNullOrEmpty(dmChannel))
-                    {
-                        continue;
-                    }
-                    await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", dmChannel);
-                }
+                await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", slackChannels.FirstOrDefault(c => c.Name == "status").Id);
             }
             StatusNotifier.SaveStatus(userId, status);
         }
