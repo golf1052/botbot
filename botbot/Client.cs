@@ -369,6 +369,22 @@ namespace botbot
                     await SendSlackMessage("Finished Spotify auth", channel);
                 }
             }
+            else if (text.ToLower().StartsWith("botbot score"))
+            {
+                await SendSlackMessage("Coming soon after I figure out regex again", channel);
+            }
+            else if (text.ToLower().StartsWith("botbot top"))
+            {
+                await SendSlackMessage("Coming soon after I figure out regex again", channel);
+            }
+            else if (text.ToLower().StartsWith("botbot bottom"))
+            {
+                await SendSlackMessage("Coming soon after I figure out regex again", channel);
+            }
+            else if (text.ToLower().StartsWith("botbot erase"))
+            {
+                await SendSlackMessage("Coming soon after I figure out regex again", channel);
+            }
             else if (text.ToLower().StartsWith("botbot "))
             {
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
