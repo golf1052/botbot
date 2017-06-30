@@ -369,27 +369,30 @@ namespace botbot
                     await SendSlackMessage("Finished Spotify auth", channel);
                 }
             }
-            else if (text.ToLower().StartsWith("botbot score"))
-            {
-                await SendSlackMessage("Coming soon after I figure out regex again", channel);
-            }
-            else if (text.ToLower().StartsWith("botbot top"))
-            {
-                await SendSlackMessage("Coming soon after I figure out regex again", channel);
-            }
-            else if (text.ToLower().StartsWith("botbot bottom"))
-            {
-                await SendSlackMessage("Coming soon after I figure out regex again", channel);
-            }
-            else if (text.ToLower().StartsWith("botbot erase"))
-            {
-                await SendSlackMessage("Coming soon after I figure out regex again", channel);
-            }
             else if (text.ToLower().StartsWith("botbot "))
             {
+                string plusPlusStatusMessage = string.Empty;
+                plusPlusStatusMessage = PlusPlus.CheckErase(text, channel, (string)e.Message["user"]);
+                if (!string.IsNullOrEmpty(plusPlusStatusMessage))
+                {
+                    await SendSlackMessage(plusPlusStatusMessage, channel);
+                    return;
+                }
+                plusPlusStatusMessage = PlusPlus.CheckScore(text, channel, (string)e.Message["user"]);
+                if (!string.IsNullOrEmpty(plusPlusStatusMessage))
+                {
+                    await SendSlackMessage(plusPlusStatusMessage, channel);
+                    return;
+                }
+                plusPlusStatusMessage = PlusPlus.CheckTopBottom(text, channel, (string)e.Message["user"]);
+                if (!string.IsNullOrEmpty(plusPlusStatusMessage))
+                {
+                    await SendSlackMessage(plusPlusStatusMessage, channel);
+                    return;
+                }
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
-            string plusPlusMessage = PlusPlus.Check(text, channel, (string)e.Message["user"]);
+            string plusPlusMessage = PlusPlus.CheckPlusPlus(text, channel, (string)e.Message["user"]);
             if (!string.IsNullOrEmpty(plusPlusMessage))
             {
                 await SendSlackMessage(plusPlusMessage, channel);
