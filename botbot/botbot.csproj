@@ -35,7 +35,7 @@
     <PackageReference Include="System.Net.WebSockets.Client" Version="4.3.0" />
     <PackageReference Include="System.Net.Http" Version="4.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
-    <PackageReference Include="MongoDb.Driver" Version="2.4.2" />
+    <PackageReference Include="MongoDb.Driver" Version="2.4.4" />
   </ItemGroup>
 
 </Project>
