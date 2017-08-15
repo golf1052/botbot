@@ -51,9 +51,8 @@ namespace botbot
                 {
                     await BotBotController.StartClient(loggerFactory.CreateLogger<Client>());
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-
                 }
             }
         }

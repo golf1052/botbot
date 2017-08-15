@@ -145,7 +145,7 @@ namespace botbot
                                         {
                                             ids.Add(await soundcloud.ResolveSoundcloud(link));
                                         }
-                                        catch (Exception ex)
+                                        catch (Exception)
                                         {
                                         }
                                     }
@@ -441,7 +441,7 @@ namespace botbot
                         await soundcloud.AddSongToPlaylist(id);
                         await SendSlackMessage($"Added {(string)attachment["title"]} to Soundcloud playlist", channel);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                     }
                 }
@@ -495,7 +495,7 @@ namespace botbot
                                 {
                                     ids.Add(await soundcloud.ResolveSoundcloud(link));
                                 }
-                                catch (Exception ex)
+                                catch (Exception)
                                 {
                                 }
                             }
