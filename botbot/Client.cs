@@ -118,7 +118,21 @@ namespace botbot
             Task.Run(() => CheckTypings());
             Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
+            Task.Run(() => CanAccessMongo());
             await Receive();
+        }
+
+        private async Task CanAccessMongo()
+        {
+            try
+            {
+                PlusPlusLog log = PlusPlusScore.GetLog();
+            }
+            catch (TimeoutException)
+            {
+                await SendSlackMessage("I can't access mongo. Please.", golf1052Channel);
+            }
+            await Task.Delay(TimeSpan.FromMinutes(30));
         }
 
         private async Task ProcessRadioArchive()

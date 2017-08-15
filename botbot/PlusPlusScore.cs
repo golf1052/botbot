@@ -184,19 +184,26 @@ namespace botbot
                 new UpdateOptions { IsUpsert = true });
         }
 
-        private static PlusPlusLog GetLog()
+        public static PlusPlusLog GetLog()
         {
             var filter = Builders<PlusPlusLog>.Filter.Eq<string>("_id", "log");
-            PlusPlusLog log = Client.PlusPlusLogCollection.Find(filter).FirstOrDefault();
-            if (log == null)
+            try
             {
-                log = new PlusPlusLog();
-                log.Id = "log";
-                Client.PlusPlusLogCollection.ReplaceOne(Builders<PlusPlusLog>.Filter.Eq<string>("_id", "log"),
-                    log,
-                    new UpdateOptions { IsUpsert = true });
+                PlusPlusLog log = Client.PlusPlusLogCollection.Find(filter).FirstOrDefault();
+                if (log == null)
+                {
+                    log = new PlusPlusLog();
+                    log.Id = "log";
+                    Client.PlusPlusLogCollection.ReplaceOne(Builders<PlusPlusLog>.Filter.Eq<string>("_id", "log"),
+                        log,
+                        new UpdateOptions { IsUpsert = true });
+                }
+                return log;
             }
-            return log;
+            catch (TimeoutException)
+            {
+                throw;
+            }
         }
 
         private static bool Validate(string thing, string from)
