@@ -24,7 +24,6 @@ namespace botbot
     {
         public const string BaseUrl = "https://slack.com/api/";
         public const double PsuedoRandomDistConst = 0.00380;
-        public const string golf1052Channel = "D0L4V7E68";
         public static MongoClient Mongo;
         public static IMongoDatabase PlusPlusDatabase;
         public static IMongoCollection<PlusPlusThing> ThingCollection;
@@ -33,7 +32,6 @@ namespace botbot
 
         static Client()
         {
-            // logger = Startup.logFactory.CreateLogger<Client>();
             responded = false;
             Mongo = new MongoClient(Secrets.MongoConnectionString);
             PlusPlusDatabase = Mongo.GetDatabase("plusplus");
@@ -42,6 +40,7 @@ namespace botbot
             StatusNotifier = new StatusNotifier();
         }
 
+        private readonly Settings settings;
         private readonly ILogger logger;
         private SlackCore slackCore;
         private List<SlackUser> slackUsers;
@@ -68,7 +67,7 @@ namespace botbot
         {
             "ping",
             "reactions",
-            "playlist",
+            //"playlist",
             "help",
             "commands"
         });
@@ -95,12 +94,13 @@ namespace botbot
 
         HttpClient httpClient;
         
-        public Client(string accessToken, ILogger<Client> logger)
+        public Client(Settings settings, ILogger<Client> logger)
         {
+            this.settings = settings;
             httpClient = new HttpClient();
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
-            slackCore = new SlackCore(accessToken);
+            slackCore = new SlackCore(settings.Token);
             slackUsers = new List<SlackUser>();
             typings = new Dictionary<string, Dictionary<string, DateTime>>();
             reactionMisses = new Dictionary<string, int>();
@@ -114,9 +114,9 @@ namespace botbot
             await webSocket.ConnectAsync(uri, CancellationToken.None);
             slackUsers = await slackCore.UsersList();
             slackChannels = await slackCore.ChannelsList(1);
-            await soundcloud.Auth();
+            //await soundcloud.Auth();
             Task.Run(() => CheckTypings());
-            Task.Run(() => SendTypings(slackChannels.First(c => c.Name == "testing").Id));
+            Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
             Task.Run(() => CanAccessMongo());
             await Receive();
@@ -130,7 +130,7 @@ namespace botbot
             }
             catch (TimeoutException)
             {
-                await SendSlackMessage("I can't access mongo. Please.", golf1052Channel);
+                await SendSlackMessage("I can't access mongo. Please.", GetChannelIdByName(settings.TestingChannel));
             }
             await Task.Delay(TimeSpan.FromMinutes(30));
         }
@@ -267,7 +267,10 @@ namespace botbot
                         }
                         else if (messageType == "user_change")
                         {
-                            await ProcessProfileChange(o);
+                            if (!string.IsNullOrEmpty(settings.StatusChannel))
+                            {
+                                await ProcessProfileChange(o);
+                            }
                         }
                     }
                 }
@@ -293,7 +296,7 @@ namespace botbot
                     {
                         return;
                     }
-                    if (channel == "C0KN49JKD") // tech
+                    if (channel == GetChannelIdByName(settings.TechChannel))
                     {
                         foreach (JObject attachment in attachments)
                         {
@@ -310,10 +313,10 @@ namespace botbot
                             await SendSlackMessage($"Here's the Hacker News link: {hackerNewsUrl}", channel);
                         }
                     }
-                    else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio
-                    {
-                        await ProcessRadioAttachment(e);
-                    }
+                    //else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio
+                    //{
+                    //    await ProcessRadioAttachment(e);
+                    //}
                 }
                 return;
             }
@@ -325,22 +328,22 @@ namespace botbot
             {
                 await SendSlackMessage(GetRandomFromList(hiResponses), channel);
             }
-            else if (text.ToLower() == "hubot ping")
-            {
-                await Task.Delay(TimeSpan.FromSeconds(30));
-                if (!responded)
-                {
-                    await SendSlackMessage("Hubot is dead. I killed him.", channel);
-                }
-                responded = false;
-            }
-            else if (text.ToLower() == "pong")
-            {
-                if ((string)e.Message["user"] == slackUsers.First(u => u.Name == "hubot").Id)
-                {
-                    responded = true;
-                }
-            }
+            //else if (text.ToLower() == "hubot ping")
+            //{
+            //    await Task.Delay(TimeSpan.FromSeconds(30));
+            //    if (!responded)
+            //    {
+            //        await SendSlackMessage("Hubot is dead. I killed him.", channel);
+            //    }
+            //    responded = false;
+            //}
+            //else if (text.ToLower() == "pong")
+            //{
+            //    if ((string)e.Message["user"] == slackUsers.First(u => u.Name == "hubot").Id)
+            //    {
+            //        responded = true;
+            //    }
+            //}
             else if (text.ToLower() == "botbot reactions")
             {
                 await SendSlackMessage("Calculating reactions count, this might take me a minute...", channel);
@@ -357,60 +360,60 @@ namespace botbot
                     await SendSlackMessage($"botbot {command}", channel);
                 }
             }
-            else if (text.ToLower() == "botbot playlist")
-            {
-                List<string> l = new List<string>()
-                {
-                    "Soundcloud: https://soundcloud.com/golf1052/sets/botbot",
-                    $"Spotify: {SpotifyApi.PlaylistUrl}"
-                };
-                await SendSlackMessage(l, channel);
-            }
-            else if (text.ToLower() == "botbot playlist soundcloud")
-            {
-                await SendSlackMessage("https://soundcloud.com/golf1052/sets/botbot", channel);
-            }
-            else if (text.ToLower() == "botbot playlist spotify")
-            {
-                await SendSlackMessage(SpotifyApi.PlaylistUrl, channel);
-            }
-            else if (text.ToLower().StartsWith("botbot code"))
-            {
-                var split = text.Split(' ');
-                if (split.Length == 3)
-                {
-                    await spotify.FinishAuth(split[2]);
-                    await SendSlackMessage("Finished Spotify auth", channel);
-                }
-            }
-            else if (text.ToLower().StartsWith("botbot "))
-            {
-                string plusPlusStatusMessage = string.Empty;
-                plusPlusStatusMessage = PlusPlus.CheckErase(text, channel, (string)e.Message["user"]);
-                if (!string.IsNullOrEmpty(plusPlusStatusMessage))
-                {
-                    await SendSlackMessage(plusPlusStatusMessage, channel);
-                    return;
-                }
-                plusPlusStatusMessage = PlusPlus.CheckScore(text, channel, (string)e.Message["user"]);
-                if (!string.IsNullOrEmpty(plusPlusStatusMessage))
-                {
-                    await SendSlackMessage(plusPlusStatusMessage, channel);
-                    return;
-                }
-                plusPlusStatusMessage = PlusPlus.CheckTopBottom(text, channel, (string)e.Message["user"]);
-                if (!string.IsNullOrEmpty(plusPlusStatusMessage))
-                {
-                    await SendSlackMessage(plusPlusStatusMessage, channel);
-                    return;
-                }
-                await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
-            }
-            string plusPlusMessage = PlusPlus.CheckPlusPlus(text, channel, (string)e.Message["user"]);
-            if (!string.IsNullOrEmpty(plusPlusMessage))
-            {
-                await SendSlackMessage(plusPlusMessage, channel);
-            }
+            //else if (text.ToLower() == "botbot playlist")
+            //{
+            //    List<string> l = new List<string>()
+            //    {
+            //        "Soundcloud: https://soundcloud.com/golf1052/sets/botbot",
+            //        $"Spotify: {SpotifyApi.PlaylistUrl}"
+            //    };
+            //    await SendSlackMessage(l, channel);
+            //}
+            //else if (text.ToLower() == "botbot playlist soundcloud")
+            //{
+            //    await SendSlackMessage("https://soundcloud.com/golf1052/sets/botbot", channel);
+            //}
+            //else if (text.ToLower() == "botbot playlist spotify")
+            //{
+            //    await SendSlackMessage(SpotifyApi.PlaylistUrl, channel);
+            //}
+            //else if (text.ToLower().StartsWith("botbot code"))
+            //{
+            //    var split = text.Split(' ');
+            //    if (split.Length == 3)
+            //    {
+            //        await spotify.FinishAuth(split[2]);
+            //        await SendSlackMessage("Finished Spotify auth", channel);
+            //    }
+            //}
+            //else if (text.ToLower().StartsWith("botbot "))
+            //{
+            //    string plusPlusStatusMessage = string.Empty;
+            //    plusPlusStatusMessage = PlusPlus.CheckErase(text, channel, (string)e.Message["user"]);
+            //    if (!string.IsNullOrEmpty(plusPlusStatusMessage))
+            //    {
+            //        await SendSlackMessage(plusPlusStatusMessage, channel);
+            //        return;
+            //    }
+            //    plusPlusStatusMessage = PlusPlus.CheckScore(text, channel, (string)e.Message["user"]);
+            //    if (!string.IsNullOrEmpty(plusPlusStatusMessage))
+            //    {
+            //        await SendSlackMessage(plusPlusStatusMessage, channel);
+            //        return;
+            //    }
+            //    plusPlusStatusMessage = PlusPlus.CheckTopBottom(text, channel, (string)e.Message["user"]);
+            //    if (!string.IsNullOrEmpty(plusPlusStatusMessage))
+            //    {
+            //        await SendSlackMessage(plusPlusStatusMessage, channel);
+            //        return;
+            //    }
+            //    await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
+            //}
+            //string plusPlusMessage = PlusPlus.CheckPlusPlus(text, channel, (string)e.Message["user"]);
+            //if (!string.IsNullOrEmpty(plusPlusMessage))
+            //{
+            //    await SendSlackMessage(plusPlusMessage, channel);
+            //}
             //await HandleReaction(e);
         }
 
@@ -420,7 +423,7 @@ namespace botbot
             var status = $"{responseObject["user"]["profile"]["status_emoji"]} {responseObject["user"]["profile"]["status_text"]}";
             if (StatusNotifier.HasChanged(userId, status))
             {
-                await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", slackChannels.FirstOrDefault(c => c.Name == "status").Id);
+                await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
             }
             StatusNotifier.SaveStatus(userId, status);
         }
@@ -490,7 +493,7 @@ namespace botbot
 
         public async Task<List<long>> ProcessRadio()
         {
-            string url = $"https://slack.com/api/channels.history?token={Secrets.Token}&channel=C0ANB9SMV&count=1000";
+            string url = $"https://slack.com/api/channels.history?token={settings.Token}&channel=C0ANB9SMV&count=1000";
             HttpResponseMessage response = await httpClient.GetAsync(url);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
             List<long> ids = new List<long>();
@@ -620,6 +623,11 @@ namespace botbot
             Uri url = new Uri(BaseUrl + endpoint);
             HttpResponseMessage response = await httpClient.GetAsync(url);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
+        }
+
+        private string GetChannelIdByName(string name)
+        {
+            return slackChannels.First(c => c.Name == name).Id;
         }
     }
 }

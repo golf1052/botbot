@@ -6,24 +6,38 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Logging;
 using botbot.Status;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace botbot.Controllers
 {
     [Route("[controller]")]
     public class BotBotController : Controller
     {
-        public static Client client;
+        public static List<Client> clients;
+        public static List<Task> clientTasks;
         public static HttpClient httpClient;
 
-        public static async Task StartClient(ILogger<Client> logger)
+        static BotBotController()
         {
-            BotBotController.client = new Client(Secrets.Token, logger);
-            await client.SendApiCall("reactions.list?token=" + Secrets.Token + "&full=true&count=100");
+            clients = new List<Client>();
+            clientTasks = new List<Task>();
             httpClient = new HttpClient();
-            Uri uri = new Uri(Client.BaseUrl + "rtm.start?token=" + Secrets.Token);
-            HttpResponseMessage response = await httpClient.GetAsync(uri);
-            JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
-            await client.Connect(new Uri((string)responseObject["url"]));
+        }
+
+        public static async Task StartClients(ILogger<Client> logger)
+        {
+            JObject settings = JObject.Parse(System.IO.File.ReadAllText("settings.json"));
+            foreach (var workspace in settings["workspaces"])
+            {
+                Settings workspaceSettings = JsonConvert.DeserializeObject<Settings>(workspace.ToString());
+                Client client = new Client(workspaceSettings, logger);
+                Uri uri = new Uri(Client.BaseUrl + "rtm.connect?token=" + workspaceSettings.Token);
+                HttpResponseMessage response = await httpClient.GetAsync(uri);
+                JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
+                clientTasks.Add(client.Connect(new Uri((string)responseObject["url"])));
+            }
+            await Task.WhenAll(clientTasks);
         }
 
         [HttpPost]

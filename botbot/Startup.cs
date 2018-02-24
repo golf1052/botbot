@@ -38,17 +38,8 @@ namespace botbot
             app.UseDefaultFiles();
             app.UseStaticFiles();
             app.UseMvc();
-            
-            while (true)
-            {
-                try
-                {
-                    await BotBotController.StartClient(loggerFactory.CreateLogger<Client>());
-                }
-                catch (Exception)
-                {
-                }
-            }
+
+            await BotBotController.StartClients(loggerFactory.CreateLogger<Client>());
         }
     }
 }
