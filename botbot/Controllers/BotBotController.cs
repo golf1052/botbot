@@ -14,13 +14,14 @@ namespace botbot.Controllers
     [Route("[controller]")]
     public class BotBotController : Controller
     {
-        public static List<Client> clients;
+        // <team id, client>
+        public static Dictionary<string, Client> clients;
         public static List<Task> clientTasks;
         public static HttpClient httpClient;
 
         static BotBotController()
         {
-            clients = new List<Client>();
+            clients = new Dictionary<string, Client>();
             clientTasks = new List<Task>();
             httpClient = new HttpClient();
         }
@@ -35,9 +36,24 @@ namespace botbot.Controllers
                 Uri uri = new Uri(Client.BaseUrl + "rtm.connect?token=" + workspaceSettings.Token);
                 HttpResponseMessage response = await httpClient.GetAsync(uri);
                 JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
+                string teamId = (string)responseObject["team"]["id"];
+                clients.Add(teamId, client);
                 clientTasks.Add(client.Connect(new Uri((string)responseObject["url"])));
             }
             await Task.WhenAll(clientTasks);
+        }
+
+        public static async Task Crosspost(string teamId, string channelId, string user, string message)
+        {
+            await Crosspost(teamId, channelId, $"{user}\n{message}");
+        }
+
+        public static async Task Crosspost(string teamId, string channelId, string message)
+        {
+            if (clients.ContainsKey(teamId))
+            {
+                await clients[teamId].SendSlackMessage(message, channelId);
+            }
         }
 
         [HttpPost]

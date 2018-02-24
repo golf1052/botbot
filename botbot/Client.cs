@@ -17,6 +17,7 @@ using golf1052.SlackAPI.Objects;
 using golf1052.SlackAPI.Other;
 using MongoDB.Driver;
 using botbot.Status;
+using botbot.Controllers;
 
 namespace botbot
 {
@@ -281,6 +282,7 @@ namespace botbot
         {
             string text = (string)e.Message["text"];
             string channel = (string)e.Message["channel"];
+            string userId = (string)e.Message["user"];
             if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(channel))
             {
                 string subtype = (string)e.Message["subtype"];
@@ -409,6 +411,14 @@ namespace botbot
                 //}
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
+            //if (GetUserIdByName("botbot") != userId &&
+            //    GetChannelIdByName(settings.TechChannel) == channel)
+            //{
+            //    await BotBotController.Crosspost(settings.CrosspostTeamId,
+            //        settings.CrosspostChannelId,
+            //        GetUserRealNameById(userId),
+            //        text);
+            //}
             //string plusPlusMessage = PlusPlus.CheckPlusPlus(text, channel, (string)e.Message["user"]);
             //if (!string.IsNullOrEmpty(plusPlusMessage))
             //{
@@ -628,6 +638,21 @@ namespace botbot
         private string GetChannelIdByName(string name)
         {
             return slackChannels.First(c => c.Name == name).Id;
+        }
+
+        private string GetUserIdByName(string name)
+        {
+            return slackUsers.First(u => u.Name == name).Id;
+        }
+
+        private string GetUserNameById(string id)
+        {
+            return slackUsers.First(u => u.Id == id).Name;
+        }
+
+        private string GetUserRealNameById(string id)
+        {
+            return slackUsers.First(u => u.Id == id).RealName;
         }
     }
 }

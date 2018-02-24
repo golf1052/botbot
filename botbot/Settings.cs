@@ -8,6 +8,9 @@ namespace botbot
 {
     public class Settings
     {
+        [JsonProperty("id")]
+        public string Id { get; private set; }
+
         [JsonProperty("token")]
         public string Token { get; private set; }
 
@@ -19,5 +22,11 @@ namespace botbot
 
         [JsonProperty("status_channel")]
         public string StatusChannel { get; private set; }
+
+        [JsonProperty("crosspost_team_id")]
+        public string CrosspostTeamId { get; private set; }
+
+        [JsonProperty("crosspost_channel_id")]
+        public string CrosspostChannelId { get; private set; }
     }
 }
