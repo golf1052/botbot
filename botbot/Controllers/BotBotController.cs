@@ -28,6 +28,8 @@ namespace botbot.Controllers
 
         public static async Task StartClients(ILogger<Client> logger)
         {
+            clients.Clear();
+            clientTasks.Clear();
             JObject settings = JObject.Parse(System.IO.File.ReadAllText("settings.json"));
             foreach (var workspace in settings["workspaces"])
             {
