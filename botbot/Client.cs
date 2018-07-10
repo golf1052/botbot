@@ -18,6 +18,8 @@ using golf1052.SlackAPI.Other;
 using MongoDB.Driver;
 using botbot.Status;
 using botbot.Controllers;
+using System.IO.Pipelines;
+using System.Buffers;
 
 namespace botbot
 {
@@ -46,7 +48,7 @@ namespace botbot
         private SlackCore slackCore;
         private List<SlackUser> slackUsers;
         private List<SlackChannel> slackChannels;
-        ClientWebSocket webSocket;
+        private ClientWebSocket webSocket;
         static bool responded;
         List<string> pingResponses = new List<string>(new string[]
         { "pong", "hello", "hi", "what's up!", "I am always alive.", "hubot is an inferior bot.",
@@ -223,58 +225,106 @@ namespace botbot
         {
             while (!webSocket.CloseStatus.HasValue)
             {
-                MemoryStream stream = new MemoryStream();
-                StreamReader reader = new StreamReader(stream);
-                bool endOfData = false;
-                while (!endOfData)
+                Pipe pipe = new Pipe();
+                while (true)
                 {
-                    byte[] buf = new byte[8192];
-                    ArraySegment<byte> buffer = new ArraySegment<byte>(buf);
-                    WebSocketReceiveResult response = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
-                    stream.Write(buffer.Array, buffer.Offset, buffer.Count);
-                    endOfData = response.EndOfMessage;
-                }
-                stream.Seek(0, SeekOrigin.Begin);
-                while (!reader.EndOfStream)
-                {
-                    string read = reader.ReadLine();
-                    JObject o = JObject.Parse(read);
-                    logger.LogInformation(o.ToString());
-                    if (o["type"] != null)
+                    Memory<byte> memory = pipe.Writer.GetMemory(128);
+                    ValueWebSocketReceiveResult response;
+                    try
                     {
-                        string messageType = (string)o["type"];
-                        if (messageType == "message")
-                        {
-                            SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
-                            newMessage.Message = o;
-                            MessageReceived(this, newMessage);
-                        }
-                        else if (messageType == "user_typing")
-                        {
-                            string channel = (string)o["channel"];
-                            string user = (string)o["user"];
-                            if (!typings.ContainsKey(channel))
-                            {
-                                typings.Add(channel, new Dictionary<string, DateTime>());
-                            }
-                            if (!typings[channel].ContainsKey(user))
-                            {
-                                typings[channel].Add(user, DateTime.UtcNow);
-                            }
-                            else
-                            {
-                                typings[channel][user] = DateTime.UtcNow;
-                            }
-                        }
-                        else if (messageType == "user_change")
-                        {
-                            if (!string.IsNullOrEmpty(settings.StatusChannel))
-                            {
-                                await ProcessProfileChange(o);
-                            }
-                        }
+                        response = await webSocket.ReceiveAsync(memory, CancellationToken.None);
+                        pipe.Writer.Advance(response.Count);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Exception while receiving from websocket");
+                        break;
+                    }
+                    if (response.EndOfMessage)
+                    {
+                        await pipe.Writer.FlushAsync();
+                        break;
                     }
                 }
+                pipe.Writer.Complete();
+                while (true)
+                {
+                    ReadResult result = await pipe.Reader.ReadAsync();
+                    ReadOnlySequence<byte> buffer = result.Buffer;
+                    while (true)
+                    {
+                        if (buffer.IsEmpty && result.IsCompleted)
+                        {
+                            break;
+                        }
+                        JObject o = JObject.Parse(GetString(buffer));
+                        buffer = buffer.Slice(buffer.End);
+                        logger.LogInformation(o.ToString());
+                        if (o["type"] != null)
+                        {
+                            string messageType = (string)o["type"];
+                            if (messageType == "message")
+                            {
+                                SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
+                                newMessage.Message = o;
+                                MessageReceived(this, newMessage);
+                            }
+                            else if (messageType == "user_typing")
+                            {
+                                string channel = (string)o["channel"];
+                                string user = (string)o["user"];
+                                if (!typings.ContainsKey(channel))
+                                {
+                                    typings.Add(channel, new Dictionary<string, DateTime>());
+                                }
+                                if (!typings[channel].ContainsKey(user))
+                                {
+                                    typings[channel].Add(user, DateTime.UtcNow);
+                                }
+                                else
+                                {
+                                    typings[channel][user] = DateTime.UtcNow;
+                                }
+                            }
+                            else if (messageType == "user_change")
+                            {
+                                if (!string.IsNullOrEmpty(settings.StatusChannel))
+                                {
+                                    await ProcessProfileChange(o);
+                                }
+                            }
+                        }
+
+                        pipe.Reader.AdvanceTo(buffer.Start, buffer.End);
+                    }
+
+                    if (result.IsCompleted)
+                    {
+                        break;
+                    }
+                }
+                pipe.Reader.Complete();
+            }
+        }
+
+        private string GetString(ReadOnlySequence<byte> buffer)
+        {
+            if (buffer.IsSingleSegment)
+            {
+                return Encoding.UTF8.GetString(buffer.First.Span);
+            }
+            else
+            {
+                // Taken from https://gist.github.com/terrajobst/6e1bea5bec4591edd7c5fe5416ce7f56#file-sample6-cs
+                // Explaination: https://msdn.microsoft.com/en-us/magazine/mt814808.aspx?f=255&MSPPError=-2147217396
+                return string.Create((int)buffer.Length, buffer, (span, sequence) =>
+                {
+                    foreach (var segment in sequence)
+                    {
+                        Encoding.UTF8.GetChars(segment.Span, span);
+                        span = span.Slice(segment.Length);
+                    }
+                });
             }
         }
 

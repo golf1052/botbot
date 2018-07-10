@@ -8,14 +8,13 @@ namespace botbot
     {
         public static void Main(string[] args)
         {
-            BuildWebHost(args).Run();
+            CreateWebHostBuilder(args).Build().Run();
         }
 
-        public static IWebHost BuildWebHost(string[] args) {
+        public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
             return WebHost.CreateDefaultBuilder(args)
                 .UseStartup<Startup>()
-                .UseUrls("http://127.0.0.1:8892")
-                .Build();
+                .UseUrls("http://127.0.0.1:8892");
         }
     }
 }
