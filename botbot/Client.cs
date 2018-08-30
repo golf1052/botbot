@@ -112,6 +112,19 @@ namespace botbot
             this.logger = logger;
         }
 
+        public async Task<JObject> GetConnectionInfo()
+        {
+            Uri uri = new Uri($"{Client.BaseUrl}rtm.connect?token={settings.Token}");
+            HttpResponseMessage response = await httpClient.GetAsync(uri);
+            return JObject.Parse(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task<Uri> GetConnectionUrl()
+        {
+            JObject connectionInfo = await GetConnectionInfo();
+            return new Uri((string)connectionInfo["url"]);
+        }
+
         public async Task Connect(Uri uri)
         {
             await webSocket.ConnectAsync(uri, CancellationToken.None);
@@ -123,6 +136,11 @@ namespace botbot
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
             Task.Run(() => CanAccessMongo());
             await Receive();
+        }
+
+        private async Task Reconnect(Uri uri)
+        {
+            await webSocket.ConnectAsync(uri, CancellationToken.None);
         }
 
         private async Task CanAccessMongo()
@@ -238,6 +256,11 @@ namespace botbot
                     catch (Exception ex)
                     {
                         logger.LogError(ex, "Exception while receiving from websocket");
+                        if (webSocket.State == WebSocketState.Aborted)
+                        {
+                            logger.LogWarning("Websocket was aborted, reconnecting");
+                            await Reconnect(await GetConnectionUrl());
+                        }
                         break;
                     }
                     if (response.EndOfMessage)

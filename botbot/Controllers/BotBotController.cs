@@ -35,12 +35,10 @@ namespace botbot.Controllers
             {
                 Settings workspaceSettings = JsonConvert.DeserializeObject<Settings>(workspace.ToString());
                 Client client = new Client(workspaceSettings, logger);
-                Uri uri = new Uri(Client.BaseUrl + "rtm.connect?token=" + workspaceSettings.Token);
-                HttpResponseMessage response = await httpClient.GetAsync(uri);
-                JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
-                string teamId = (string)responseObject["team"]["id"];
+                JObject connectionInfo = await client.GetConnectionInfo();
+                string teamId = (string)connectionInfo["team"]["id"];
                 clients.Add(teamId, client);
-                clientTasks.Add(client.Connect(new Uri((string)responseObject["url"])));
+                clientTasks.Add(client.Connect(new Uri((string)connectionInfo["url"])));
             }
             await Task.WhenAll(clientTasks);
         }
