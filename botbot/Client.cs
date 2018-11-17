@@ -380,12 +380,12 @@ namespace botbot
                             {
                                 return;
                             }
-                            string hackerNewsUrl = await HackerNewsApi.Search(url);
-                            if (hackerNewsUrl == null)
+                            SearchItem hackerNewsItem = await HackerNewsApi.Search(url);
+                            if (hackerNewsItem == null)
                             {
                                 return;
                             }
-                            await SendSlackMessage($"Here's the Hacker News link: {hackerNewsUrl}", channel);
+                            await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel);
                         }
                     }
                     //else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio

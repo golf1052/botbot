@@ -10,7 +10,7 @@ namespace botbot
 {
     public class HackerNewsApi
     {
-        public static async Task<string> Search(string url)
+        public static async Task<SearchItem> Search(string url)
         {
             HttpClient client = new HttpClient();
             HttpResponseMessage response = await client.GetAsync($"http://hn.algolia.com/api/v1/search?query={url}&restrictSearchableAttributes=url");
@@ -33,14 +33,14 @@ namespace botbot
             // If there's only one item just return that
             if (hitItems.Count == 1)
             {
-                return $"https://news.ycombinator.com/item?id={hitItems[0].Id}";
+                return hitItems[0];
             }
 
             // Check if there are any front page items, if there are return the first one
             SearchItem frontPageItem = hitItems.FirstOrDefault(i => i.OnFrontPage);
             if (frontPageItem != null)
             {
-                return $"https://news.ycombinator.com/item?id={frontPageItem.Id}";
+                return frontPageItem;
             }
 
             // Else just sort by date, descending, and return the first one
@@ -48,12 +48,15 @@ namespace botbot
             {
                 return b.CreatedAt.CompareTo(a.CreatedAt);
             });
-            return $"https://news.ycombinator.com/item?id={hitItems[0].Id}";
+            return hitItems[0];
         }
     }
 
     public class SearchItem
     {
+        [JsonProperty("title")]
+        public string Title { get; private set; }
+
         [JsonProperty("points")]
         public int? Points { get; private set; }
 
@@ -79,6 +82,11 @@ namespace botbot
                 }
                 return false;
             }
+        }
+
+        public string GetUrl()
+        {
+            return $"https://news.ycombinator.com/item?id={Id}";
         }
     }
 }
