@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Reverb\Reverb\Reverb.csproj" />
     <ProjectReference Include="..\..\SlackAPI\golf1052.SlackAPI\golf1052.SlackAPI.csproj" />
   </ItemGroup>
 

@@ -94,6 +94,7 @@ namespace botbot
 
         SoundcloudApi soundcloud;
         SpotifyApi spotify;
+        SpotifyGet2018Albums spotifyGet2018Albums;
 
         HttpClient httpClient;
         
@@ -109,6 +110,7 @@ namespace botbot
             reactionMisses = new Dictionary<string, int>();
             soundcloud = new SoundcloudApi();
             spotify = new SpotifyApi();
+            spotifyGet2018Albums = new SpotifyGet2018Albums(SendSlackMessage);
             this.logger = logger;
         }
 
@@ -435,6 +437,13 @@ namespace botbot
                     await SendSlackMessage($"botbot {command}", channel);
                 }
             }
+            else if (text.ToLower() == "botbot spotify")
+            {
+                if (channel.StartsWith('D'))
+                {
+                    await spotifyGet2018Albums.Receive(text, channel, userId);
+                }
+            }
             //else if (text.ToLower() == "botbot playlist")
             //{
             //    List<string> l = new List<string>()
@@ -483,6 +492,10 @@ namespace botbot
                 //    return;
                 //}
                 await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
+            }
+            else if (channel.StartsWith('D'))
+            {
+                await spotifyGet2018Albums.Receive(text, channel, userId);
             }
             //if (GetUserIdByName("botbot") != userId &&
             //    GetChannelIdByName(settings.TechChannel) == channel)
