@@ -387,7 +387,14 @@ namespace botbot
                             {
                                 return;
                             }
-                            await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel);
+                            
+                            // Check if link was posted in a thread, if so reply to the thread
+                            string threadTimestamp = null;
+                            if (newMessage["thread_ts"] != null)
+                            {
+                                threadTimestamp = (string)newMessage["thread_ts"];
+                            }
+                            await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel, threadTimestamp);
                         }
                     }
                     //else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio
@@ -692,11 +699,20 @@ namespace botbot
 
         public async Task SendSlackMessage(string message, string channel)
         {
+            await SendSlackMessage(message, channel, null);
+        }
+
+        public async Task SendSlackMessage(string message, string channel, string threadTimestamp)
+        {
             JObject o = new JObject();
             o["id"] = 1;
             o["type"] = "message";
             o["channel"] = channel;
             o["text"] = message;
+            if (!string.IsNullOrEmpty(threadTimestamp))
+            {
+                o["thread_ts"] = threadTimestamp;
+            }
             await SendMessage(o.ToString(Formatting.None));
         }
         
