@@ -451,6 +451,10 @@ namespace botbot
                     await spotifyGet2018Albums.Receive(text, channel, userId);
                 }
             }
+            else if (text.ToLower().StartsWith("botbot stock "))
+            {
+                await SendSlackMessage(await BotBotController.stockCommand.Handle(text.Replace("botbot stock ", "")), channel);
+            }
             //else if (text.ToLower() == "botbot playlist")
             //{
             //    List<string> l = new List<string>()

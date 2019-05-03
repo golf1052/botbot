@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using botbot.Status;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using botbot.Command;
 
 namespace botbot.Controllers
 {
@@ -18,12 +19,14 @@ namespace botbot.Controllers
         public static Dictionary<string, Client> clients;
         public static List<Task> clientTasks;
         public static HttpClient httpClient;
+        public static StockCommand stockCommand;
 
         static BotBotController()
         {
             clients = new Dictionary<string, Client>();
             clientTasks = new List<Task>();
             httpClient = new HttpClient();
+            stockCommand = new StockCommand();
         }
 
         public static async Task StartClients(ILogger<Client> logger)
@@ -57,11 +60,20 @@ namespace botbot.Controllers
         }
 
         [HttpPost]
-        public void SlashCommand()
+        public async void SlashCommand()
         {
             RequestBody requestBody = new RequestBody(Request.Form);
-            JObject responseObject = ProcessSlashCommand(requestBody);
-            httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+            if (requestBody.Command == "/botbot")
+            {
+                JObject responseObject = ProcessSlashCommand(requestBody);
+                httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+            }
+            else if (requestBody.Command == "/stock")
+            {
+                JObject responseObject = new JObject();
+                responseObject["text"] = await stockCommand.Handle(requestBody.Text);
+                httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+            }
         }
 
         private JObject ProcessSlashCommand(RequestBody requestBody)
