@@ -20,6 +20,7 @@ using botbot.Status;
 using botbot.Controllers;
 using System.IO.Pipelines;
 using System.Buffers;
+using Reverb;
 
 namespace botbot
 {
@@ -95,6 +96,7 @@ namespace botbot
         SoundcloudApi soundcloud;
         SpotifyApi spotify;
         SpotifyGet2018Albums spotifyGet2018Albums;
+        SpotifyClient spotifyClient;
 
         HttpClient httpClient;
         
@@ -111,6 +113,7 @@ namespace botbot
             soundcloud = new SoundcloudApi();
             spotify = new SpotifyApi();
             spotifyGet2018Albums = new SpotifyGet2018Albums(SendSlackMessage);
+            spotifyClient = new SpotifyClient(Secrets.SpotifyClientId, Secrets.SpotifyClientSecret, Secrets.SpotifyRedirectUrl);
             this.logger = logger;
         }
 
@@ -132,6 +135,7 @@ namespace botbot
             await webSocket.ConnectAsync(uri, CancellationToken.None);
             slackUsers = await slackCore.UsersList();
             slackChannels = await slackCore.ChannelsList(1);
+            await spotifyClient.RequestAccessToken();
             //await soundcloud.Auth();
             Task.Run(() => CheckTypings());
             Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
@@ -373,29 +377,16 @@ namespace botbot
                     {
                         return;
                     }
-                    if (channel == GetChannelIdByName(settings.TechChannel))
+
+                    string threadTimestamp = null;
+                    if (newMessage["thread_ts"] != null)
                     {
-                        foreach (JObject attachment in attachments)
-                        {
-                            string url = (string)attachment["title_link"];
-                            if (string.IsNullOrEmpty(url))
-                            {
-                                return;
-                            }
-                            SearchItem hackerNewsItem = await HackerNewsApi.Search(url);
-                            if (hackerNewsItem == null)
-                            {
-                                return;
-                            }
-                            
-                            // Check if link was posted in a thread, if so reply to the thread
-                            string threadTimestamp = null;
-                            if (newMessage["thread_ts"] != null)
-                            {
-                                threadTimestamp = (string)newMessage["thread_ts"];
-                            }
-                            await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel, threadTimestamp);
-                        }
+                        threadTimestamp = (string)newMessage["thread_ts"];
+                    }
+
+                    foreach (JObject attachment in attachments)
+                    {
+                        await ProcessAttachment(newMessage, attachment, channel, threadTimestamp);
                     }
                     //else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio
                     //{
@@ -628,6 +619,89 @@ namespace botbot
                 }
             }
             return ids;
+        }
+
+        private async Task ProcessAttachment(JObject newMessage, JObject attachment, string channel, string threadTimestamp)
+        {
+            await ProcessGooglePlayMusicAttachment(newMessage, attachment, channel, threadTimestamp);
+            await ProcessHackerNewsAttachment(newMessage, attachment, channel, threadTimestamp);
+        }
+
+        private async Task ProcessGooglePlayMusicAttachment(JObject newMessage, JObject attachment, string channel, string threadTimestamp)
+        {
+            string serviceName = (string)attachment["service_name"];
+            string originalUrl = (string)attachment["original_url"];
+            if (serviceName == "play.google.com" && originalUrl.Contains("/music/"))
+            {
+                string title = (string)attachment["title"];
+                string[] splitTitle = title.Split("-");
+                string guessTitle = string.Empty;
+                string guessArtist = string.Empty;
+                if (splitTitle.Length > 0)
+                {
+                    guessTitle = splitTitle[0].Trim();
+                }
+                if (splitTitle.Length > 1)
+                {
+                    guessArtist = splitTitle[1].Trim();
+                }
+
+                if (spotifyClient.AccessTokenExpiresAt <= DateTimeOffset.UtcNow)
+                {
+                    await spotifyClient.RefreshAccessToken();
+                }
+                var searchResult = await spotifyClient.Search(title,
+                    new List<SpotifyConstants.SpotifySearchTypes> { SpotifyConstants.SpotifySearchTypes.Album, SpotifyConstants.SpotifySearchTypes.Track });
+                var firstAlbum = searchResult.Albums.Items.FirstOrDefault();
+                var firstTrack = searchResult.Tracks.Items.FirstOrDefault();
+                string spotifyLink = string.Empty;
+                if (firstAlbum != null)
+                {
+                    var artist = firstAlbum.Artists.FirstOrDefault();
+                    if (artist?.Name == guessArtist && firstAlbum.Name == guessTitle)
+                    {
+                        if (firstAlbum.ExternalUrls.ContainsKey("spotify"))
+                        {
+                            spotifyLink = firstAlbum.ExternalUrls["spotify"];
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(spotifyLink) && firstTrack != null)
+                {
+                    var artist = firstTrack.Artists.FirstOrDefault();
+                    if (artist?.Name == guessArtist && firstTrack.Name == guessTitle)
+                    {
+                        if (firstTrack.ExternalUrls.ContainsKey("spotify"))
+                        {
+                            spotifyLink = firstTrack.ExternalUrls["spotify"];
+                        }
+                    }
+                }
+                
+                if (!string.IsNullOrEmpty(spotifyLink))
+                {
+                    await SendSlackMessage($"Spotify Link: {spotifyLink}", channel, threadTimestamp);
+                }   
+            }
+        }
+
+        private async Task ProcessHackerNewsAttachment(JObject newMessage, JObject attachment, string channel, string threadTimestamp)
+        {
+            if (channel == GetChannelIdByName(settings.TechChannel))
+            {
+                string url = (string)attachment["title_link"];
+                if (string.IsNullOrEmpty(url))
+                {
+                    return;
+                }
+                SearchItem hackerNewsItem = await HackerNewsApi.Search(url);
+                if (hackerNewsItem == null)
+                {
+                    return;
+                }
+                await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel, threadTimestamp);
+            }
         }
 
         private async Task CalculateReactions(string channel)
