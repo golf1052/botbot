@@ -69,7 +69,11 @@ namespace botbot.Command
             }
             catch (AlphaVantageException ex)
             {
-                return $"Unknown error: {ex.Message}";
+                return $"Unknown error\n{ex.Message}";
+            }
+            catch (Exception ex)
+            {
+                return $"Some other error: {ex.Message}";
             }
         }
 
