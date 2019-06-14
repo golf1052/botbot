@@ -67,7 +67,10 @@ namespace botbot.Command
             {
                 return "Rate limited. Try again in a minute.";
             }
-            
+            catch (AlphaVantageException ex)
+            {
+                return $"Unknown error: {ex.Message}";
+            }
         }
 
         private double PercentChange(double newPrice, double oldPrice)
