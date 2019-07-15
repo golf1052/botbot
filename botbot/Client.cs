@@ -21,6 +21,7 @@ using botbot.Controllers;
 using System.IO.Pipelines;
 using System.Buffers;
 using Reverb;
+using botbot.Command;
 
 namespace botbot
 {
@@ -98,6 +99,8 @@ namespace botbot
         SpotifyGet2018Albums spotifyGet2018Albums;
         SpotifyClient spotifyClient;
 
+        NewReleasesCommand newReleasesCommand;
+
         HttpClient httpClient;
         
         public Client(Settings settings, ILogger<Client> logger)
@@ -114,6 +117,7 @@ namespace botbot
             spotify = new SpotifyApi();
             spotifyGet2018Albums = new SpotifyGet2018Albums(SendSlackMessage);
             spotifyClient = new SpotifyClient(Secrets.SpotifyClientId, Secrets.SpotifyClientSecret, Secrets.SpotifyRedirectUrl);
+            newReleasesCommand = new NewReleasesCommand();
             this.logger = logger;
         }
 
@@ -141,12 +145,23 @@ namespace botbot
             Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
             Task.Run(() => CanAccessMongo());
+            Task.Run(() => CheckNewReleases());
+            string botbotId = GetUserIdByName("botbot");
             await Receive();
         }
 
         private async Task Reconnect(Uri uri)
         {
             await webSocket.ConnectAsync(uri, CancellationToken.None);
+        }
+
+        private async Task CheckNewReleases()
+        {
+            while (true)
+            {
+                await newReleasesCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
+                await Task.Delay(TimeSpan.FromHours(1));
+            }
         }
 
         private async Task CanAccessMongo()
@@ -444,7 +459,14 @@ namespace botbot
             }
             else if (text.ToLower().StartsWith("botbot stock "))
             {
-                await SendSlackMessage(await BotBotController.stockCommand.Handle(text.Replace("botbot stock ", "")), channel);
+                await SendSlackMessage(await BotBotController.stockCommand.Handle(text.Replace("botbot stock ", ""), userId), channel);
+            }
+            else if (text.ToLower().StartsWith("botbot new releases"))
+            {
+                if (channel.StartsWith('D'))
+                {
+                    await SendSlackMessage(await newReleasesCommand.Handle(text.Replace("botbot new releases", "").Trim(), userId), channel);
+                }
             }
             //else if (text.ToLower() == "botbot playlist")
             //{

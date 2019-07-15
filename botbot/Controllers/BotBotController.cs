@@ -71,7 +71,7 @@ namespace botbot.Controllers
             else if (requestBody.Command == "/stock")
             {
                 JObject responseObject = new JObject();
-                responseObject["text"] = await stockCommand.Handle(requestBody.Text);
+                responseObject["text"] = await stockCommand.Handle(requestBody.Text, requestBody.UserId);
                 httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
             }
         }

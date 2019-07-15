@@ -11,7 +11,7 @@ using ThreeFourteen.AlphaVantage.Model;
 
 namespace botbot.Command
 {
-    public class StockCommand
+    public class StockCommand : ISlackCommand
     {
         private const string BaseUrl = "https://www.alphavantage.co/query";
 
@@ -24,7 +24,7 @@ namespace botbot.Command
             httpClient = new HttpClient();
         }
 
-        public async Task<string> Handle(string text)
+        public async Task<string> Handle(string text, string userId)
         {
             Url url = new Url(BaseUrl)
                 .SetQueryParam("function", "SYMBOL_SEARCH")
