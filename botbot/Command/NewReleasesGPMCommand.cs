@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using botbot.Command.NewReleases.GPM;
 using golf1052.SlackAPI.Objects;
+using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace botbot.Command
@@ -91,7 +92,16 @@ namespace botbot.Command
         private async Task<string> GetNewReleasesForUser(NewReleasesGPMObject newReleasesObject)
         {
             newReleasesObject.LastChecked = DateTimeOffset.UtcNow;
-            List<GPMAlbum> newReleases = await gpmClient.GetAlbums(newReleasesObject.AuthInfo);
+            List<GPMAlbum> newReleases;
+            try
+            {
+                newReleases = await gpmClient.GetAlbums(newReleasesObject.AuthInfo);
+            }
+            catch (Exception ex)
+            {
+                // TODO: Log exceptions
+                return $"There was an exception. Ask Sanders to fix it.\n${ex.Message}";
+            }
             List<GPMAlbum> notSeenReleases = new List<GPMAlbum>();
             foreach (GPMAlbum album in newReleases)
             {
