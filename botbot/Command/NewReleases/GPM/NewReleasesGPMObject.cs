@@ -19,7 +19,7 @@ namespace botbot.Command.NewReleases.GPM
         {
             foreach (SeenGPMAlbum seenAlbum in AlbumsSeen)
             {
-                if (album.AlbumId == album.AlbumId)
+                if (album.AlbumId == seenAlbum.AlbumId)
                 {
                     return true;
                 }
