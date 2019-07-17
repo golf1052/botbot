@@ -100,6 +100,7 @@ namespace botbot
         SpotifyClient spotifyClient;
 
         NewReleasesCommand newReleasesCommand;
+        NewReleasesGPMCommand newReleasesGPMCommand;
 
         HttpClient httpClient;
         
@@ -118,6 +119,7 @@ namespace botbot
             spotifyGet2018Albums = new SpotifyGet2018Albums(SendSlackMessage);
             spotifyClient = new SpotifyClient(Secrets.SpotifyClientId, Secrets.SpotifyClientSecret, Secrets.SpotifyRedirectUrl);
             newReleasesCommand = new NewReleasesCommand();
+            newReleasesGPMCommand = new NewReleasesGPMCommand();
             this.logger = logger;
         }
 
@@ -160,6 +162,7 @@ namespace botbot
             while (true)
             {
                 await newReleasesCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
+                await newReleasesGPMCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
                 await Task.Delay(TimeSpan.FromHours(1));
             }
         }
@@ -465,7 +468,14 @@ namespace botbot
             {
                 if (channel.StartsWith('D'))
                 {
-                    await SendSlackMessage(await newReleasesCommand.Handle(text.Replace("botbot new releases", "").Trim(), userId), channel);
+                    if (text.ToLower().StartsWith("botbot new releases gpm"))
+                    {
+                        await SendSlackMessage(await newReleasesGPMCommand.Handle(text.Replace("botbot new releases gpm", "").Trim(), userId), channel);
+                    }
+                    else
+                    {
+                        await SendSlackMessage(await newReleasesCommand.Handle(text.Replace("botbot new releases", "").Trim(), userId), channel);
+                    }
                 }
             }
             //else if (text.ToLower() == "botbot playlist")
