@@ -17,6 +17,7 @@ namespace botbot.Command.NewReleases.GPM
         public GPMClient(ushort portNumber)
         {
             httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromMinutes(5);
             baseUrl = $"http://localhost:{portNumber}";
         }
 
