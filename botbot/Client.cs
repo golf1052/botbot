@@ -149,7 +149,27 @@ namespace botbot
             Task.Run(() => CanAccessMongo());
             Task.Run(() => CheckNewReleases());
             string botbotId = GetUserIdByName("botbot");
-            await Receive();
+            while (true)
+            {
+                try
+                {
+                    await Receive();
+                }
+                catch (WebSocketException ex)
+                {
+                    if (webSocket.State == WebSocketState.Aborted)
+                    {
+                        logger.LogWarning("Websocket was aborted, reconnecting");
+                        await Reconnect(await GetConnectionUrl());
+                    }
+                    else
+                    {
+                        logger.LogError("Websocket in unknown state, restarting websocket");
+                        webSocket = new ClientWebSocket();
+                        await Reconnect(await GetConnectionUrl());
+                    }
+                }
+            }
         }
 
         private async Task Reconnect(Uri uri)
@@ -277,15 +297,10 @@ namespace botbot
                         response = await webSocket.ReceiveAsync(memory, CancellationToken.None);
                         pipe.Writer.Advance(response.Count);
                     }
-                    catch (Exception ex)
+                    catch (WebSocketException ex)
                     {
                         logger.LogError(ex, "Exception while receiving from websocket");
-                        if (webSocket.State == WebSocketState.Aborted)
-                        {
-                            logger.LogWarning("Websocket was aborted, reconnecting");
-                            await Reconnect(await GetConnectionUrl());
-                        }
-                        break;
+                        throw;
                     }
                     if (response.EndOfMessage)
                     {
