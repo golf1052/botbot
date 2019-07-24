@@ -182,7 +182,7 @@ namespace botbot
             while (true)
             {
                 await newReleasesCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
-                // await newReleasesGPMCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
+                await newReleasesGPMCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
                 await Task.Delay(TimeSpan.FromHours(1));
             }
         }
