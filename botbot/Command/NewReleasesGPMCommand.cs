@@ -100,7 +100,8 @@ namespace botbot.Command
             catch (Exception ex)
             {
                 // TODO: Log exceptions
-                return $"There was an exception. Ask Sanders to fix it.\n{ex.Message}";
+                throw;
+                //return $"There was an exception. Ask Sanders to fix it.\n{ex.Message}";
             }
             List<GPMAlbum> notSeenReleases = new List<GPMAlbum>();
             foreach (GPMAlbum album in newReleases)
