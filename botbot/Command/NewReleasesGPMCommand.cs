@@ -91,7 +91,7 @@ namespace botbot.Command
 
         private async Task<string> GetNewReleasesForUser(NewReleasesGPMObject newReleasesObject)
         {
-            newReleasesObject.LastChecked = DateTimeOffset.UtcNow;
+            //newReleasesObject.LastChecked = DateTimeOffset.UtcNow;
             List<GPMAlbum> newReleases;
             try
             {
