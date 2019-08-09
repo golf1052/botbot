@@ -160,6 +160,7 @@ namespace botbot
                     if (webSocket.State == WebSocketState.Aborted)
                     {
                         logger.LogWarning("Websocket was aborted, reconnecting");
+                        webSocket = new ClientWebSocket();
                         await Reconnect(await GetConnectionUrl());
                     }
                     else
