@@ -22,6 +22,7 @@ using System.IO.Pipelines;
 using System.Buffers;
 using Reverb;
 using botbot.Command;
+using botbot.Module;
 
 namespace botbot
 {
@@ -102,6 +103,8 @@ namespace botbot
         NewReleasesCommand newReleasesCommand;
         NewReleasesGPMCommand newReleasesGPMCommand;
 
+        List<IMessageModule> messageModules;
+
         HttpClient httpClient;
         
         public Client(Settings settings, ILogger<Client> logger)
@@ -120,6 +123,7 @@ namespace botbot
             spotifyClient = new SpotifyClient(Secrets.SpotifyClientId, Secrets.SpotifyClientSecret, Secrets.SpotifyRedirectUrl);
             newReleasesCommand = new NewReleasesCommand();
             newReleasesGPMCommand = new NewReleasesGPMCommand();
+            messageModules = new List<IMessageModule>();
             this.logger = logger;
         }
 
@@ -142,6 +146,11 @@ namespace botbot
             slackUsers = await slackCore.UsersList();
             slackChannels = await slackCore.ChannelsList(1);
             await spotifyClient.RequestAccessToken();
+
+            messageModules.Add(new PingModule());
+            messageModules.Add(new HiModule());
+            messageModules.Add(new StockModule());
+
             //await soundcloud.Auth();
             Task.Run(() => CheckTypings());
             Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
@@ -396,6 +405,11 @@ namespace botbot
             string text = (string)e.Message["text"];
             string channel = (string)e.Message["channel"];
             string userId = (string)e.Message["user"];
+            List<Task<string>> messageModuleTasks = new List<Task<string>>();
+            foreach (var module in messageModules)
+            {
+                messageModuleTasks.Add(module.Handle(text, userId, channel));
+            }
             if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(channel))
             {
                 string subtype = (string)e.Message["subtype"];
@@ -429,14 +443,6 @@ namespace botbot
                 }
                 return;
             }
-            if (text.ToLower() == "botbot ping")
-            {
-                await SendSlackMessage(GetRandomFromList(pingResponses), channel);
-            }
-            else if (text.ToLower() == "hi botbot")
-            {
-                await SendSlackMessage(GetRandomFromList(hiResponses), channel);
-            }
             //else if (text.ToLower() == "hubot ping")
             //{
             //    await Task.Delay(TimeSpan.FromSeconds(30));
@@ -453,7 +459,7 @@ namespace botbot
             //        responded = true;
             //    }
             //}
-            else if (text.ToLower() == "botbot reactions")
+            if (text.ToLower() == "botbot reactions")
             {
                 await SendSlackMessage("Calculating reactions count, this might take me a minute...", channel);
                 await CalculateReactions(channel);
@@ -475,10 +481,6 @@ namespace botbot
                 {
                     await spotifyGet2018Albums.Receive(text, channel, userId);
                 }
-            }
-            else if (text.ToLower().StartsWith("botbot stock "))
-            {
-                await SendSlackMessage(await BotBotController.stockCommand.Handle(text.Replace("botbot stock ", ""), userId), channel);
             }
             else if (text.ToLower().StartsWith("botbot new releases"))
             {
@@ -541,7 +543,7 @@ namespace botbot
                 //    await SendSlackMessage(plusPlusStatusMessage, channel);
                 //    return;
                 //}
-                await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
+                //await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
             else if (channel.StartsWith('D'))
             {
@@ -561,6 +563,38 @@ namespace botbot
             //    await SendSlackMessage(plusPlusMessage, channel);
             //}
             //await HandleReaction(e);
+            bool allTasksDone = false;
+            while (!allTasksDone)
+            {
+                allTasksDone = true;
+                for (int i = 0; i < messageModuleTasks.Count; i++)
+                {
+                    var task = messageModuleTasks[i];
+                    if (task.IsCompletedSuccessfully)
+                    {
+                        string result = await task;
+                        if (!string.IsNullOrWhiteSpace(result))
+                        {
+                            await SendSlackMessage(result, channel);
+                        }
+                        messageModuleTasks.RemoveAt(i);
+                        i--;
+                        continue;
+                    }
+                    else if (task.IsFaulted)
+                    {
+                        // do something
+                        logger.LogWarning($"task failed {task.Exception.Message}");
+                        messageModuleTasks.RemoveAt(i);
+                        i--;
+                        continue;
+                    }
+                    else
+                    {
+                        allTasksDone = false;
+                    }
+                }
+            }
         }
 
         async Task ProcessProfileChange(JObject responseObject)
