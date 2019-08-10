@@ -150,6 +150,8 @@ namespace botbot
             messageModules.Add(new PingModule());
             messageModules.Add(new HiModule());
             messageModules.Add(new StockModule());
+            messageModules.Add(new ReactionsModule(slackCore, SendSlackMessage));
+            messageModules.Add(new NewReleasesModule());
 
             //await soundcloud.Auth();
             Task.Run(() => CheckTypings());
@@ -459,12 +461,7 @@ namespace botbot
             //        responded = true;
             //    }
             //}
-            if (text.ToLower() == "botbot reactions")
-            {
-                await SendSlackMessage("Calculating reactions count, this might take me a minute...", channel);
-                await CalculateReactions(channel);
-            }
-            else if (text.ToLower() == "botbot help")
+            if (text.ToLower() == "botbot help")
             {
                 await SendSlackMessage(GetRandomFromList(helpResponses), channel);
             }
@@ -480,20 +477,6 @@ namespace botbot
                 if (channel.StartsWith('D'))
                 {
                     await spotifyGet2018Albums.Receive(text, channel, userId);
-                }
-            }
-            else if (text.ToLower().StartsWith("botbot new releases"))
-            {
-                if (channel.StartsWith('D'))
-                {
-                    if (text.ToLower().StartsWith("botbot new releases gpm"))
-                    {
-                        await SendSlackMessage(await newReleasesGPMCommand.Handle(text.Replace("botbot new releases gpm", "").Trim(), userId), channel);
-                    }
-                    else
-                    {
-                        await SendSlackMessage(await newReleasesCommand.Handle(text.Replace("botbot new releases", "").Trim(), userId), channel);
-                    }
                 }
             }
             //else if (text.ToLower() == "botbot playlist")
@@ -784,54 +767,6 @@ namespace botbot
                 }
                 await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel, threadTimestamp);
             }
-        }
-
-        private async Task CalculateReactions(string channel)
-        {
-            List<SlackEvent> reactions = new List<SlackEvent>();
-            foreach (SlackUser user in slackUsers)
-            {
-                reactions.AddRange(await slackCore.ReactionsList(user.Id, allItems: true));
-            }
-            Dictionary<string, Dictionary<DateTime, int>> topReactions = new Dictionary<string, Dictionary<DateTime, int>>();
-            Dictionary<string, int> topR = new Dictionary<string, int>();
-            foreach (SlackEvent reaction in reactions)
-            {
-                if (reaction.Type == SlackEvent.SlackEventType.Message)
-                {
-                    Message message = reaction as Message;
-                    foreach (Reaction r in message.Reactions)
-                    {
-                        if (!topReactions.ContainsKey(r.Name))
-                        {
-                            topReactions.Add(r.Name, new Dictionary<DateTime, int>());
-                        }
-                        if (!topReactions[r.Name].ContainsKey(message.Timestamp))
-                        {
-                            topReactions[r.Name].Add(message.Timestamp, r.Count);
-                        }
-                    }
-                }
-            }
-            foreach (KeyValuePair<string, Dictionary<DateTime, int>> pair in topReactions)
-            {
-                foreach (KeyValuePair<DateTime, int> timePair in pair.Value)
-                {
-                    if (!topR.ContainsKey(pair.Key))
-                    {
-                        topR.Add(pair.Key, 0);
-                    }
-                    topR[pair.Key] += timePair.Value;
-                }
-            }
-            List<string> finalMessage = new List<string>();
-            finalMessage.Add("Top 10 reactions to messages");
-            var sortedReactions = (from entry in topR orderby entry.Value descending select entry).ToList();
-            for (int i = 0; i < 10; i++)
-            {
-                finalMessage.Add($":{sortedReactions[i].Key}: - {sortedReactions[i].Value}");
-            }
-            await SendSlackMessage(finalMessage, channel);
         }
         
         public T GetRandomFromList<T>(List<T> list)
