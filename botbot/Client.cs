@@ -159,6 +159,7 @@ namespace botbot
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
             Task.Run(() => CanAccessMongo());
             Task.Run(() => CheckNewReleases());
+            Task.Run(() => CheckNewReleasesGPM());
             string botbotId = GetUserIdByName("botbot");
             while (true)
             {
@@ -194,6 +195,14 @@ namespace botbot
             while (true)
             {
                 await newReleasesCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
+                await Task.Delay(TimeSpan.FromHours(1));
+            }
+        }
+
+        private async Task CheckNewReleasesGPM()
+        {
+            while (true)
+            {
                 await newReleasesGPMCommand.CheckNewReleasesForUsers(await slackCore.UsersConversations(types: "im"), SendSlackMessage);
                 await Task.Delay(TimeSpan.FromHours(1));
             }
