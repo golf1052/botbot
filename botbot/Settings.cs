@@ -28,5 +28,8 @@ namespace botbot
 
         [JsonProperty("crosspost_channel_id")]
         public string CrosspostChannelId { get; private set; }
+
+        [JsonProperty("hubot_enabled")]
+        public bool HubotEnabled { get; private set; }
     }
 }

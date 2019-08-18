@@ -89,6 +89,7 @@ namespace botbot
         });
 
         event EventHandler<SlackMessageEventArgs> MessageReceived;
+        event EventHandler<SlackRTMEventArgs> EventReceived;
 
         // <channel, <user, timestamp>>
         Dictionary<string, Dictionary<string, DateTime>> typings;
@@ -104,6 +105,8 @@ namespace botbot
         NewReleasesGPMCommand newReleasesGPMCommand;
 
         List<IMessageModule> messageModules;
+        List<IEventModule> eventModules;
+        HubotModule hubotModule;
 
         HttpClient httpClient;
         
@@ -113,6 +116,7 @@ namespace botbot
             httpClient = new HttpClient();
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
+            EventReceived += Client_EventReceived;
             slackCore = new SlackCore(settings.Token);
             slackUsers = new List<SlackUser>();
             typings = new Dictionary<string, Dictionary<string, DateTime>>();
@@ -124,6 +128,7 @@ namespace botbot
             newReleasesCommand = new NewReleasesCommand();
             newReleasesGPMCommand = new NewReleasesGPMCommand();
             messageModules = new List<IMessageModule>();
+            eventModules = new List<IEventModule>();
             this.logger = logger;
         }
 
@@ -153,9 +158,42 @@ namespace botbot
             messageModules.Add(new ReactionsModule(slackCore, SendSlackMessage));
             messageModules.Add(new NewReleasesModule());
 
+            eventModules.Add(new TypingModule(slackCore, SendMessage));
+            if (settings.HubotEnabled)
+            {
+                hubotModule = new HubotModule(slackCore, SendMessage);
+                await hubotModule.Init(settings.Token);
+                eventModules.Add(hubotModule);
+            }
+
+            foreach (var eventModule in eventModules)
+            {
+                RecurringModule recurring = eventModule.RegisterRecurring();
+                if (recurring != null)
+                {
+                    Task t = Task.Run(async () =>
+                    {
+                        while (true)
+                        {
+                            try
+                            {
+                                await recurring.Func.Invoke();
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, "Error while running recurring module");
+                            }
+                            await Task.Delay(recurring.Interval);
+                        }
+                    });
+                }
+            }
+
             //await soundcloud.Auth();
-            Task.Run(() => CheckTypings());
-            Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
+            if (!string.IsNullOrEmpty(settings.TestingChannel))
+            {
+                Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
+            }
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
             Task.Run(() => CanAccessMongo());
             Task.Run(() => CheckNewReleases());
@@ -274,35 +312,6 @@ namespace botbot
                 await Task.Delay(TimeSpan.FromMinutes(waitFor));
             }
         }
-
-        public async Task CheckTypings()
-        {
-            while (true)
-            {
-                // clean stale
-                foreach (var typing in typings)
-                {
-                    List<string> typingUsers = typing.Value.Keys.ToList();
-                    foreach (string user in typingUsers)
-                    {
-                        if (DateTime.UtcNow - typing.Value[user] >= TimeSpan.FromSeconds(3))
-                        {
-                            typing.Value.Remove(user);
-                        }
-                    }
-                }
-
-                // send on active
-                foreach (var typing in typings)
-                {
-                    if (typing.Value.Count >= 4)
-                    {
-                        await SendTyping(typing.Key);
-                    }
-                }
-                await Task.Delay(TimeSpan.FromSeconds(1));
-            }
-        }
         
         public async Task Receive()
         {
@@ -348,26 +357,10 @@ namespace botbot
                             string messageType = (string)o["type"];
                             if (messageType == "message")
                             {
+                                hubotModule.Handle(messageType, o);
                                 SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
                                 newMessage.Message = o;
                                 MessageReceived(this, newMessage);
-                            }
-                            else if (messageType == "user_typing")
-                            {
-                                string channel = (string)o["channel"];
-                                string user = (string)o["user"];
-                                if (!typings.ContainsKey(channel))
-                                {
-                                    typings.Add(channel, new Dictionary<string, DateTime>());
-                                }
-                                if (!typings[channel].ContainsKey(user))
-                                {
-                                    typings[channel].Add(user, DateTime.UtcNow);
-                                }
-                                else
-                                {
-                                    typings[channel][user] = DateTime.UtcNow;
-                                }
                             }
                             else if (messageType == "user_change")
                             {
@@ -376,6 +369,13 @@ namespace botbot
                                     await ProcessProfileChange(o);
                                 }
                             }
+                            else
+                            {
+                                SlackRTMEventArgs rtmEvent = new SlackRTMEventArgs();
+                                rtmEvent.Type = messageType;
+                                rtmEvent.Event = o;
+                                EventReceived(this, rtmEvent);
+                            }                            
                         }
 
                         pipe.Reader.AdvanceTo(buffer.Start, buffer.End);
@@ -408,6 +408,42 @@ namespace botbot
                         span = span.Slice(segment.Length);
                     }
                 });
+            }
+        }
+        private async void Client_EventReceived(object sender, SlackRTMEventArgs e)
+        {
+            List<Task> eventModuleTasks = new List<Task>();
+            foreach (var module in eventModules)
+            {
+                eventModuleTasks.Add(module.Handle(e.Type, e.Event));
+            }
+
+            bool allTasksDone = false;
+            while (!allTasksDone)
+            {
+                allTasksDone = true;
+                for (int i = 0; i < eventModuleTasks.Count; i++)
+                {
+                    var task = eventModuleTasks[i];
+                    if (task.IsCompletedSuccessfully)
+                    {
+                        await task;
+                        eventModuleTasks.RemoveAt(i);
+                        i--;
+                        continue;
+                    }
+                    else if (task.IsFaulted)
+                    {
+                        logger.LogWarning($"task failed {task.Exception.Message}");
+                        eventModuleTasks.RemoveAt(i);
+                        i--;
+                        continue;
+                    }
+                    else
+                    {
+                        allTasksDone = false;
+                    }
+                }
             }
         }
 
