@@ -157,6 +157,7 @@ namespace botbot
             messageModules.Add(new StockModule());
             messageModules.Add(new ReactionsModule(slackCore, SendSlackMessage));
             messageModules.Add(new NewReleasesModule());
+            messageModules.Add(new PresidentApprovalModule());
 
             eventModules.Add(new TypingModule(slackCore, SendMessage));
             if (settings.HubotEnabled)

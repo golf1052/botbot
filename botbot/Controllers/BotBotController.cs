@@ -20,6 +20,7 @@ namespace botbot.Controllers
         public static List<Task> clientTasks;
         public static HttpClient httpClient;
         public static StockCommand stockCommand;
+        public static PresidentApprovalCommand presidentCommand;
         public static string HubotWorkspace;
 
         static BotBotController()
@@ -28,6 +29,7 @@ namespace botbot.Controllers
             clientTasks = new List<Task>();
             httpClient = new HttpClient();
             stockCommand = new StockCommand();
+            presidentCommand = new PresidentApprovalCommand();
         }
 
         public static async Task StartClients(ILogger<Client> logger)
@@ -77,6 +79,12 @@ namespace botbot.Controllers
             {
                 JObject responseObject = new JObject();
                 responseObject["text"] = await stockCommand.Handle(requestBody.Text, requestBody.UserId);
+                httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+            }
+            else if (requestBody.Command == "/president")
+            {
+                JObject responseObject = new JObject();
+                responseObject["text"] = await presidentCommand.Handle(requestBody.Text, requestBody.UserId);
                 httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
             }
         }
