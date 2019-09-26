@@ -30,7 +30,7 @@ namespace botbot.Command
 
         private async Task RetrieveLatestApproval()
         {
-            if (lastRetrieved < DateTimeOffset.UtcNow - TimeSpan.FromDays(1))
+            if (lastRetrieved < DateTimeOffset.UtcNow - TimeSpan.FromHours(6))
             {
                 lastRetrieved = DateTimeOffset.UtcNow;
                 HttpResponseMessage responseMessage = await httpClient.GetAsync(ApprovalCSV);
