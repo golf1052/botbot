@@ -14,8 +14,6 @@ namespace botbot
 {
     public class Startup
     {
-        public static ILoggerFactory logFactory = new LoggerFactory();
-
         public IConfiguration Configuration { get; }
 
         public Startup(IConfiguration configuration)
@@ -27,19 +25,19 @@ namespace botbot
         public void ConfigureServices(IServiceCollection services)
         {
             // Add framework services.
-            services.AddMvc()
-                .SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            services.AddControllers();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public async void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public async void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILoggerFactory loggerFactory)
         {
-            loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-            loggerFactory.AddDebug();
-
             app.UseDefaultFiles();
             app.UseStaticFiles();
-            app.UseMvc();
+            app.UseRouting();
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
 
             while (true)
             {

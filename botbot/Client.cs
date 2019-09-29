@@ -1,28 +1,25 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Net.WebSockets;
-using System.Text;
-using System.IO;
-using System.Diagnostics;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
-using Microsoft.Extensions.Logging;
-using System.Net.Http;
-using golf1052.SlackAPI;
-using golf1052.SlackAPI.Events;
-using golf1052.SlackAPI.Objects;
-using golf1052.SlackAPI.Other;
-using MongoDB.Driver;
-using botbot.Status;
-using botbot.Controllers;
-using System.IO.Pipelines;
-using System.Buffers;
-using Reverb;
 using botbot.Command;
 using botbot.Module;
+using botbot.Status;
+using golf1052.SlackAPI;
+using golf1052.SlackAPI.Objects;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Reverb;
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Pipelines;
+using System.Linq;
+using System.Net.Http;
+using System.Net.WebSockets;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace botbot
 {
@@ -56,7 +53,7 @@ namespace botbot
         List<string> pingResponses = new List<string>(new string[]
         { "pong", "hello", "hi", "what's up!", "I am always alive.", "hubot is an inferior bot.",
         "botbot at your service!", "lol", "fuck"});
-        
+
         List<string> hiResponses = new List<string>(new string[]
         {
             "hello", "hi", "what's up!", "sup fucker"
@@ -68,7 +65,7 @@ namespace botbot
             "Hi I'm botbot!",
             "Try botbot commands!"
         });
-        
+
         List<string> commands = new List<string>(new string[]
         {
             "ping",
@@ -93,7 +90,7 @@ namespace botbot
 
         // <channel, <user, timestamp>>
         Dictionary<string, Dictionary<string, DateTime>> typings;
-        
+
         Dictionary<string, int> reactionMisses;
 
         SoundcloudApi soundcloud;
@@ -109,7 +106,7 @@ namespace botbot
         HubotModule hubotModule;
 
         HttpClient httpClient;
-        
+
         public Client(Settings settings, ILogger<Client> logger)
         {
             this.settings = settings;
@@ -132,17 +129,17 @@ namespace botbot
             this.logger = logger;
         }
 
-        public async Task<JObject> GetConnectionInfo()
+        public async Task<JsonDocument> GetConnectionInfo()
         {
             Uri uri = new Uri($"{Client.BaseUrl}rtm.connect?token={settings.Token}");
             HttpResponseMessage response = await httpClient.GetAsync(uri);
-            return JObject.Parse(await response.Content.ReadAsStringAsync());
+            return JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
         }
 
         public async Task<Uri> GetConnectionUrl()
         {
-            JObject connectionInfo = await GetConnectionInfo();
-            return new Uri((string)connectionInfo["url"]);
+            JsonDocument connectionInfo = await GetConnectionInfo();
+            return new Uri(connectionInfo.RootElement.GetProperty("url").GetString());
         }
 
         public async Task Connect(Uri uri)
@@ -297,7 +294,7 @@ namespace botbot
             await soundcloud.Auth();
             await soundcloud.AddSongsToPlaylist(ids);
         }
-        
+
         public async Task SendTypings(string channel)
         {
             while (true)
@@ -313,7 +310,7 @@ namespace botbot
                 await Task.Delay(TimeSpan.FromMinutes(waitFor));
             }
         }
-        
+
         public async Task Receive()
         {
             while (!webSocket.CloseStatus.HasValue)
@@ -376,7 +373,7 @@ namespace botbot
                                 rtmEvent.Type = messageType;
                                 rtmEvent.Event = o;
                                 EventReceived(this, rtmEvent);
-                            }                            
+                            }
                         }
 
                         pipe.Reader.AdvanceTo(buffer.Start, buffer.End);
@@ -789,11 +786,11 @@ namespace botbot
                         }
                     }
                 }
-                
+
                 if (!string.IsNullOrEmpty(spotifyLink))
                 {
                     await SendSlackMessage($"Spotify Link: {spotifyLink}", channel, threadTimestamp);
-                }   
+                }
             }
         }
 
@@ -814,7 +811,7 @@ namespace botbot
                 await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel, threadTimestamp);
             }
         }
-        
+
         public T GetRandomFromList<T>(List<T> list)
         {
             Random random = new Random();
@@ -856,7 +853,7 @@ namespace botbot
             }
             await SendMessage(o.ToString(Formatting.None));
         }
-        
+
         public async Task SendTyping(string channel)
         {
             JObject o = new JObject();

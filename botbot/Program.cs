@@ -1,6 +1,5 @@
-using System.IO;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 
 namespace botbot
 {
@@ -11,10 +10,16 @@ namespace botbot
             CreateWebHostBuilder(args).Build().Run();
         }
 
-        public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
-            return WebHost.CreateDefaultBuilder(args)
-                .UseStartup<Startup>()
-                .UseUrls("http://127.0.0.1:8892");
+        public static IHostBuilder CreateWebHostBuilder(string[] args) {
+            return Host.CreateDefaultBuilder(args)
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
+                    webBuilder.ConfigureKestrel(serverOptions =>
+                    {
+                    })
+                    .UseStartup<Startup>()
+                    .UseUrls("http://127.0.0.1:8892");
+                });
         }
     }
 }

@@ -1,14 +1,12 @@
-﻿using System;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using System.Net.Http;
+﻿using botbot.Command;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Logging;
-using botbot.Status;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
-using botbot.Command;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace botbot.Controllers
 {
@@ -36,19 +34,29 @@ namespace botbot.Controllers
         {
             clients.Clear();
             clientTasks.Clear();
-            JObject settings = JObject.Parse(System.IO.File.ReadAllText("settings.json"));
-            foreach (var workspace in settings["workspaces"])
+            JsonDocument settings = JsonDocument.Parse(System.IO.File.ReadAllText("settings.json"), new JsonDocumentOptions()
             {
-                Settings workspaceSettings = JsonConvert.DeserializeObject<Settings>(workspace.ToString());
+                CommentHandling = JsonCommentHandling.Skip
+            });
+            foreach (var workspace in settings.RootElement.GetProperty("workspaces").EnumerateArray())
+            {
+                var stream = new System.IO.MemoryStream();
+                using (var writer = new Utf8JsonWriter(stream))
+                {
+                    workspace.WriteTo(writer);
+                }
+                string str = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+                Settings workspaceSettings = JsonSerializer.Deserialize<Settings>(str);
+                stream.Dispose();
                 Client client = new Client(workspaceSettings, logger);
-                JObject connectionInfo = await client.GetConnectionInfo();
-                string teamId = (string)connectionInfo["team"]["id"];
+                JsonDocument connectionInfo = await client.GetConnectionInfo();
+                string teamId = connectionInfo.RootElement.GetProperty("team").GetProperty("id").GetString();
                 if (workspaceSettings.HubotEnabled)
                 {
                     HubotWorkspace = teamId;
                 }
                 clients.Add(teamId, client);
-                clientTasks.Add(client.Connect(new Uri((string)connectionInfo["url"])));
+                clientTasks.Add(client.Connect(new Uri(connectionInfo.RootElement.GetProperty("url").GetString())));
             }
             await Task.WhenAll(clientTasks);
         }
@@ -90,21 +98,19 @@ namespace botbot.Controllers
         }
 
         [HttpPost("/hubot")]
-        public async void HubotResponse([FromBody]JObject responseObject)
+        public async void HubotResponse([FromBody]HubotResponseObject responseObject)
         {
-            if ((string)responseObject["type"] == "message")
+            if (responseObject.Type == "message")
             {
                 if (!string.IsNullOrEmpty(HubotWorkspace))
                 {
-                    string text = (string)responseObject["text"];
-                    string channel = (string)responseObject["channel"];
-                    if (responseObject["thread_ts"] != null)
+                    if (!string.IsNullOrEmpty(responseObject.ThreadTimestamp))
                     {
-                        clients[HubotWorkspace].SendSlackMessage(text, channel, (string)responseObject["thread_ts"]);
+                        clients[HubotWorkspace].SendSlackMessage(responseObject.Text, responseObject.Channel, responseObject.ThreadTimestamp);
                     }
                     else
                     {
-                        clients[HubotWorkspace].SendSlackMessage(text, channel);
+                        clients[HubotWorkspace].SendSlackMessage(responseObject.Text, responseObject.Channel);
                     }
                 }
             }
