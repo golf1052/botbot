@@ -8,13 +8,13 @@ using Reverb.Models;
 
 namespace botbot
 {
-    public class SpotifyGet2018Albums
+    public class SpotifyGetYearsAlbums
     {
         private List<string> UserCodesPending;
         private Dictionary<string, SpotifyClient> Clients;
         private Func<string, string, Task> sendMessageFunc;
 
-        public SpotifyGet2018Albums(Func<string, string, Task> sendMessageFunc)
+        public SpotifyGetYearsAlbums(Func<string, string, Task> sendMessageFunc)
         {
             this.sendMessageFunc = sendMessageFunc;
             UserCodesPending = new List<string>();
@@ -23,11 +23,21 @@ namespace botbot
 
         public async Task Receive(string text, string channel, string userId)
         {
+            string[] splitText = text.Trim().Split(' ');
+            string year = null;
+            if (splitText.Length == 3)
+            {
+                year = splitText[2];
+            }
+            else
+            {
+                year = DateTimeOffset.UtcNow.Year.ToString();
+            }
             if (!Clients.ContainsKey(userId))
             {
                 if (!UserCodesPending.Contains(userId))
                 {
-                    if (text.ToLower() == "botbot spotify")
+                    if (text.ToLower().StartsWith("botbot spotify"))
                     {
                         string authorizeUrl = SpotifyHelpers.GetAuthorizeUrl(Secrets.SpotifyClientId,
                         Secrets.SpotifyRedirectUrl,
@@ -70,19 +80,19 @@ namespace botbot
                         return;
                     }
                     Clients.Add(userId, client);
-                    await Get2018Albums(client, channel);
+                    await GetYearsAlbums(client, channel, year);
                 }
             }
             else
             {
-                if (text.ToLower() == "botbot spotify")
+                if (text.ToLower().StartsWith("botbot spotify"))
                 {
-                    await Get2018Albums(Clients[userId], channel);
+                    await GetYearsAlbums(Clients[userId], channel, year);
                 }
             }
         }
 
-        public async Task Get2018Albums(SpotifyClient client, string channel)
+        public async Task GetYearsAlbums(SpotifyClient client, string channel, string year)
         {
             List<SpotifyAlbum> albums = new List<SpotifyAlbum>();
             var albumsPage = await client.GetUserSavedAlbums(50);
@@ -95,9 +105,9 @@ namespace botbot
                 }
             }
             while (albumsPage.Next != null);
-            List<SpotifyAlbum> _2018Albums = albums.Where(a => a.ReleaseDate.Contains("2018")).ToList();
+            List<SpotifyAlbum> yearsAlbums = albums.Where(a => a.ReleaseDate.Contains(year)).ToList();
             StringBuilder stringBuilder = new StringBuilder();
-            foreach (var album in _2018Albums)
+            foreach (var album in yearsAlbums)
             {
                 SpotifyArtist artist = album.Artists.FirstOrDefault();
                 string artistName = "";

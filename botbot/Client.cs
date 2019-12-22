@@ -95,7 +95,7 @@ namespace botbot
 
         SoundcloudApi soundcloud;
         SpotifyApi spotify;
-        SpotifyGet2018Albums spotifyGet2018Albums;
+        SpotifyGetYearsAlbums spotifyGetYearsAlbums;
         SpotifyClient spotifyClient;
 
         NewReleasesCommand newReleasesCommand;
@@ -120,7 +120,7 @@ namespace botbot
             reactionMisses = new Dictionary<string, int>();
             soundcloud = new SoundcloudApi();
             spotify = new SpotifyApi();
-            spotifyGet2018Albums = new SpotifyGet2018Albums(SendSlackMessage);
+            spotifyGetYearsAlbums = new SpotifyGetYearsAlbums(SendSlackMessage);
             spotifyClient = new SpotifyClient(Secrets.SpotifyClientId, Secrets.SpotifyClientSecret, Secrets.SpotifyRedirectUrl);
             newReleasesCommand = new NewReleasesCommand();
             newReleasesGPMCommand = new NewReleasesGPMCommand();
@@ -153,7 +153,7 @@ namespace botbot
             messageModules.Add(new HiModule());
             messageModules.Add(new StockModule());
             messageModules.Add(new ReactionsModule(slackCore, SendSlackMessage));
-            messageModules.Add(new NewReleasesModule());
+            // messageModules.Add(new NewReleasesModule());
             messageModules.Add(new PresidentApprovalModule());
             messageModules.Add(new VersionModule());
 
@@ -195,8 +195,8 @@ namespace botbot
             }
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
             Task.Run(() => CanAccessMongo());
-            Task.Run(() => CheckNewReleases());
-            Task.Run(() => CheckNewReleasesGPM());
+            // Task.Run(() => CheckNewReleases());
+            // Task.Run(() => CheckNewReleasesGPM());
             string botbotId = GetUserIdByName("botbot");
             while (true)
             {
@@ -516,11 +516,11 @@ namespace botbot
                     await SendSlackMessage($"botbot {command}", channel);
                 }
             }
-            else if (text.ToLower() == "botbot spotify")
+            else if (text.ToLower().StartsWith("botbot spotify"))
             {
                 if (channel.StartsWith('D'))
                 {
-                    await spotifyGet2018Albums.Receive(text, channel, userId);
+                    await spotifyGetYearsAlbums.Receive(text, channel, userId);
                 }
             }
             //else if (text.ToLower() == "botbot playlist")
@@ -574,7 +574,7 @@ namespace botbot
             }
             else if (channel.StartsWith('D'))
             {
-                await spotifyGet2018Albums.Receive(text, channel, userId);
+                await spotifyGetYearsAlbums.Receive(text, channel, userId);
             }
             //if (GetUserIdByName("botbot") != userId &&
             //    GetChannelIdByName(settings.TechChannel) == channel)
