@@ -743,6 +743,8 @@ namespace botbot
             if (serviceName == "play.google.com" && originalUrl.Contains("/music/"))
             {
                 string title = (string)attachment["title"];
+                // ampersands are escaped as "&amp;" so turn it into a regular &
+                title = title.Replace("&amp;", "&");
                 string[] splitTitle = title.Split("-");
                 string guessTitle = string.Empty;
                 string guessArtist = string.Empty;
