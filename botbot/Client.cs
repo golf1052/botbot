@@ -31,7 +31,6 @@ namespace botbot
         public static IMongoDatabase PlusPlusDatabase;
         public static IMongoCollection<PlusPlusThing> ThingCollection;
         public static IMongoCollection<PlusPlusLog> PlusPlusLogCollection;
-        public static StatusNotifier StatusNotifier;
 
         static Client()
         {
@@ -40,7 +39,6 @@ namespace botbot
             PlusPlusDatabase = Mongo.GetDatabase("plusplus");
             ThingCollection = PlusPlusDatabase.GetCollection<PlusPlusThing>("things");
             PlusPlusLogCollection = PlusPlusDatabase.GetCollection<PlusPlusLog>("log");
-            StatusNotifier = new StatusNotifier();
         }
 
         private readonly Settings settings;
@@ -104,6 +102,7 @@ namespace botbot
         List<IMessageModule> messageModules;
         List<IEventModule> eventModules;
         HubotModule hubotModule;
+        StatusNotifier statusNotifier;
 
         HttpClient httpClient;
 
@@ -126,6 +125,7 @@ namespace botbot
             newReleasesGPMCommand = new NewReleasesGPMCommand();
             messageModules = new List<IMessageModule>();
             eventModules = new List<IEventModule>();
+            statusNotifier = new StatusNotifier(settings.Id);
             this.logger = logger;
         }
 
@@ -298,7 +298,7 @@ namespace botbot
 
         public async Task SendTypings(string channel)
         {
-            while (true)
+            while (!string.IsNullOrEmpty(channel))
             {
                 Random random = new Random();
                 int sendTypingFor = random.Next(1, 11);
@@ -356,7 +356,10 @@ namespace botbot
                             string messageType = (string)o["type"];
                             if (messageType == "message")
                             {
-                                hubotModule.Handle(messageType, o);
+                                if (hubotModule != null)
+                                {
+                                    _ = hubotModule.Handle(messageType, o);
+                                }
                                 SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
                                 newMessage.Message = o;
                                 MessageReceived(this, newMessage);
@@ -628,11 +631,11 @@ namespace botbot
         {
             var userId = (string)responseObject["user"]["id"];
             var status = $"{responseObject["user"]["profile"]["status_emoji"]} {responseObject["user"]["profile"]["status_text"]}";
-            if (StatusNotifier.HasChanged(userId, status))
+            if (statusNotifier.HasChanged(userId, status))
             {
                 await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
             }
-            StatusNotifier.SaveStatus(userId, status);
+            statusNotifier.SaveStatus(userId, status);
         }
 
         private string FindDmChannel(string userId, JArray imList)
@@ -880,7 +883,7 @@ namespace botbot
 
         private string GetChannelIdByName(string name)
         {
-            return slackChannels.First(c => c.Name == name).Id;
+            return slackChannels.FirstOrDefault(c => c.Name == name)?.Id;
         }
 
         private string GetUserIdByName(string name)

@@ -13,10 +13,28 @@ namespace botbot.Status
         private IMongoCollection<UserStatus> statusesCollection;
         private IMongoCollection<StatusSubscription> statusSubscriptionsCollection;
 
-        public StatusNotifier()
+        public StatusNotifier(string workspaceId)
         {
-            slackDatabase = Client.Mongo.GetDatabase("slack");
+            slackDatabase = Client.Mongo.GetDatabase($"slack_{workspaceId}");
+
+            try
+            {
+                slackDatabase.CreateCollection("statuses");
+            }
+            catch (MongoCommandException)
+            {
+                // collection already exists
+            }
             statusesCollection = slackDatabase.GetCollection<UserStatus>("statuses");
+
+            try
+            {
+                slackDatabase.CreateCollection("status_subscriptions");
+            }
+            catch (MongoCommandException)
+            {
+                // collection already exists
+            }
             statusSubscriptionsCollection = slackDatabase.GetCollection<StatusSubscription>("status_subscriptions");
         }
 
@@ -60,6 +78,7 @@ namespace botbot.Status
             UserStatus userStatus = GetUserStatus(userId);
             if (userStatus == null)
             {
+                userStatus = new UserStatus();
                 userStatus.UserId = userId;
                 userStatus.LastStatus = status;
                 return true;
@@ -72,6 +91,7 @@ namespace botbot.Status
             UserStatus userStatus = GetUserStatus(userId);
             if (userStatus == null)
             {
+                userStatus = new UserStatus();
                 userStatus.UserId = userId;
             }
             userStatus.LastStatus = status;
