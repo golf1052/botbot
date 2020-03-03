@@ -631,7 +631,7 @@ namespace botbot
         {
             var userId = (string)responseObject["user"]["id"];
             var status = $"{responseObject["user"]["profile"]["status_emoji"]} {responseObject["user"]["profile"]["status_text"]}";
-            if (statusNotifier.HasChanged(userId, status))
+            if (statusNotifier.HasChanged(userId, status) && !string.IsNullOrWhiteSpace(status))
             {
                 await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
             }
