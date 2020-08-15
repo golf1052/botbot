@@ -155,6 +155,7 @@ namespace botbot
             messageModules.Add(new ReactionsModule(slackCore, SendSlackMessage));
             // messageModules.Add(new NewReleasesModule());
             messageModules.Add(new PresidentApprovalModule());
+            messageModules.Add(new ElectionModelModule());
             messageModules.Add(new VersionModule());
 
             eventModules.Add(new TypingModule(slackCore, SendMessage));
