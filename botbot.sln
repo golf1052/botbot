@@ -1,12 +1,14 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27130.2036
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30406.217
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "botbot", "botbot\botbot.csproj", "{4D1652BF-C945-4381-B102-22FEE91F2DE7}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "golf1052.SlackAPI", "..\SlackAPI\golf1052.SlackAPI\golf1052.SlackAPI.csproj", "{6CFDDEBC-C3FC-441E-9FBA-7DAC93620437}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Reverb", "..\Reverb\Reverb\Reverb.csproj", "{D275284A-052E-416B-87B5-933A185C7A1F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "golf1052.DiscordAPI", "..\golf1052.DiscordAPI\golf1052.DiscordAPI\golf1052.DiscordAPI.csproj", "{4537948A-94F3-4837-A133-16155F8D679F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,6 +28,10 @@ Global
 		{D275284A-052E-416B-87B5-933A185C7A1F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D275284A-052E-416B-87B5-933A185C7A1F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D275284A-052E-416B-87B5-933A185C7A1F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4537948A-94F3-4837-A133-16155F8D679F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4537948A-94F3-4837-A133-16155F8D679F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4537948A-94F3-4837-A133-16155F8D679F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4537948A-94F3-4837-A133-16155F8D679F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

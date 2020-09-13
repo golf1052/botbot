@@ -61,6 +61,13 @@ namespace botbot.Controllers
             await Task.WhenAll(clientTasks);
         }
 
+        public static async Task StartDiscordClient()
+        {
+            DiscordClient client = new DiscordClient();
+            Uri connectionInfo = await client.GetConnectionInfo();
+            await client.Connect(connectionInfo);
+        }
+
         public static async Task Crosspost(string teamId, string channelId, string user, string message)
         {
             await Crosspost(teamId, channelId, $"{user}\n{message}");

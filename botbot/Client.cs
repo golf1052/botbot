@@ -413,6 +413,7 @@ namespace botbot
                 });
             }
         }
+
         private async void Client_EventReceived(object sender, SlackRTMEventArgs e)
         {
             List<Task> eventModuleTasks = new List<Task>();
