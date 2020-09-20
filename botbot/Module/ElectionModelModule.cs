@@ -14,20 +14,27 @@ namespace botbot.Module
     public class ElectionModelModule : IMessageModule
     {
         private const string ModelResultsZIP = "https://projects.fivethirtyeight.com/data-webpage-data/datasets/election-forecasts-2020.zip";
-        private const string ExpectedHeader = "cycle,branch,model,modeldate,candidate_inc,candidate_chal,candidate_3rd,ecwin_inc,ecwin_chal,ecwin_3rd,ec_nomajority,popwin_inc,popwin_chal,popwin_3rd,ev_inc,ev_chal,ev_3rd,ev_inc_hi,ev_chal_hi,ev_3rd_hi,ev_inc_lo,ev_chal_lo,ev_3rd_lo,national_voteshare_inc,national_voteshare_chal,national_voteshare_3rd,nat_voteshare_other,national_voteshare_inc_hi,national_voteshare_chal_hi,national_voteshare_3rd_hi,nat_voteshare_other_hi,national_voteshare_inc_lo,national_voteshare_chal_lo,national_voteshare_3rd_lo,nat_voteshare_other_lo,timestamp,simulations";
+        private const string ExpectedPresidentHeader = "cycle,branch,model,modeldate,candidate_inc,candidate_chal,candidate_3rd,ecwin_inc,ecwin_chal,ecwin_3rd,ec_nomajority,popwin_inc,popwin_chal,popwin_3rd,ev_inc,ev_chal,ev_3rd,ev_inc_hi,ev_chal_hi,ev_3rd_hi,ev_inc_lo,ev_chal_lo,ev_3rd_lo,national_voteshare_inc,national_voteshare_chal,national_voteshare_3rd,nat_voteshare_other,national_voteshare_inc_hi,national_voteshare_chal_hi,national_voteshare_3rd_hi,nat_voteshare_other_hi,national_voteshare_inc_lo,national_voteshare_chal_lo,national_voteshare_3rd_lo,nat_voteshare_other_lo,national_turnout,national_turnout_hi,national_turnout_lo,timestamp,simulations";
+        private const string ExpectedSenateHeader = "cycle,branch,expression,forecastdate,chamber_Dparty,chamber_Rparty,mean_seats_Dparty,mean_seats_Rparty,median_seats_Dparty,median_seats_Rparty,p90_seats_Dparty,p90_seats_Rparty,p10_seats_Dparty,p10_seats_Rparty,total_national_turnout,p90_total_national_turnout,p10_total_national_turnout,popvote_margin,p90_popvote_margin,p10_popvote_margin,simulations,timestamp";
         private const string ElectoralCollegeWinChance = "Electoral college win chance";
         private const string PopularVoteWinChance = "Popular vote win chance";
         private const string ElectoralVotes = "Electoral votes";
         private const string PopularVoteShare = "Popular vote share";
+        private const string SenateWinChance = "Senate win chance";
+        private const string SenateSeats = "Senate seats";
+        private const string Democrats = "Democrats";
+        private const string Republicans = "Republicans";
 
         private HttpClient httpClient;
-        private static List<ModelInfo> modelInfo;
+        private static List<PresidentModelInfo> presidentModelInfo;
+        private static List<SenateModelInfo> senateModelInfo;
         private DateTimeOffset lastRetrieved;
 
         public ElectionModelModule()
         {
             httpClient = new HttpClient();
-            modelInfo = new List<ModelInfo>();
+            presidentModelInfo = new List<PresidentModelInfo>();
+            senateModelInfo = new List<SenateModelInfo>();
             lastRetrieved = DateTimeOffset.UnixEpoch;
         }
         
@@ -65,7 +72,7 @@ namespace botbot.Module
                                 string text = reader.ReadToEnd();
                                 List<string> csvLines = text.Split('\n').ToList();
                                 bool readHeader = false;
-                                modelInfo.Clear();
+                                presidentModelInfo.Clear();
                                 foreach (string line in csvLines)
                                 {
                                     if (string.IsNullOrEmpty(line))
@@ -74,7 +81,7 @@ namespace botbot.Module
                                     }
                                     if (!readHeader)
                                     {
-                                        if (line != ExpectedHeader)
+                                        if (line != ExpectedPresidentHeader)
                                         {
                                             return;
                                         }
@@ -82,7 +89,41 @@ namespace botbot.Module
                                     }
                                     else
                                     {
-                                        modelInfo.Add(new ModelInfo(line));
+                                        presidentModelInfo.Add(new PresidentModelInfo(line));
+                                    }
+                                }
+                            }
+                        }
+                        else if (entry.Name.Contains("senate_national_toplines_2020"))
+                        {
+                            Stream openStream = entry.Open();
+                            using (StreamReader reader = new StreamReader(openStream, Encoding.UTF8))
+                            {
+                                string text = reader.ReadToEnd();
+                                List<string> csvLines = text.Split('\n').ToList();
+                                bool readHeader = false;
+                                senateModelInfo.Clear();
+                                foreach (string line in csvLines)
+                                {
+                                    if (string.IsNullOrEmpty(line))
+                                    {
+                                        continue;
+                                    }
+                                    if (!readHeader)
+                                    {
+                                        if (line != ExpectedSenateHeader)
+                                        {
+                                            return;
+                                        }
+                                        readHeader = true;
+                                    }
+                                    else
+                                    {
+                                        SenateModelInfo info = new SenateModelInfo(line);
+                                        if (info.Expression == "_deluxe")
+                                        {
+                                            senateModelInfo.Add(info);
+                                        }
                                     }
                                 }
                             }
@@ -94,105 +135,136 @@ namespace botbot.Module
 
         private string GetLatestForecast()
         {
-            ModelInfo latestInfo = modelInfo.FirstOrDefault();
-            if (latestInfo == null)
+            PresidentModelInfo latestPresidentInfo = presidentModelInfo.FirstOrDefault();
+            if (latestPresidentInfo == null)
             {
                 return null;
             }
-            DateTime twoWeeksAgo = latestInfo.ModelDate - TimeSpan.FromDays(14);
-            ModelInfo twoWeeksAgoInfo = null;
-            foreach (ModelInfo info in modelInfo)
+            DateTime presidentTwoWeeksAgo = latestPresidentInfo.ModelDate - TimeSpan.FromDays(14);
+            PresidentModelInfo twoWeeksAgoPresidentInfo = null;
+            foreach (PresidentModelInfo info in presidentModelInfo)
             {
-                if (info.ModelDate == twoWeeksAgo)
+                if (info.ModelDate == presidentTwoWeeksAgo)
                 {
-                    twoWeeksAgoInfo = info;
+                    twoWeeksAgoPresidentInfo = info;
                     break;
                 }
             }
-            if (twoWeeksAgoInfo == null)
+            if (twoWeeksAgoPresidentInfo == null)
             {
                 return null;
             }
 
-            bool hasThirdParty = !string.IsNullOrEmpty(latestInfo.CandidateThirdParty);
+            bool hasThirdParty = !string.IsNullOrEmpty(latestPresidentInfo.CandidateThirdParty);
 
-            string str = $"{latestInfo.Cycle} Election Forecast\n";
-            str += $"Date: {latestInfo.ModelDate:d}\n";
-            str += $"{ElectoralCollegeWinChance}: {latestInfo.CandidateIncumbent} {latestInfo.ECWinChanceIncumbent:F1} vs {latestInfo.CandidateChallenger} {latestInfo.ECWinChanceChallenger:F1}";
+            string str = $"{latestPresidentInfo.Cycle} Presidential Election Forecast\n";
+            str += $"Date: {latestPresidentInfo.ModelDate:d}\n";
+            str += $"{ElectoralCollegeWinChance}: {latestPresidentInfo.CandidateIncumbent} {latestPresidentInfo.ECWinChanceIncumbent:F1} vs {latestPresidentInfo.CandidateChallenger} {latestPresidentInfo.ECWinChanceChallenger:F1}";
             if (hasThirdParty)
             {
-                str += $" vs {latestInfo.CandidateThirdParty} {latestInfo.ECWinChanceThirdParty:F1}\n";
+                str += $" vs {latestPresidentInfo.CandidateThirdParty} {latestPresidentInfo.ECWinChanceThirdParty:F1}\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"{PopularVoteWinChance}: {latestInfo.CandidateIncumbent} {latestInfo.PopularWinChanceIncumbent:F1} vs {latestInfo.CandidateChallenger} {latestInfo.PopularWinChanceChallenger:F1}";
+            str += $"{PopularVoteWinChance}: {latestPresidentInfo.CandidateIncumbent} {latestPresidentInfo.PopularWinChanceIncumbent:F1} vs {latestPresidentInfo.CandidateChallenger} {latestPresidentInfo.PopularWinChanceChallenger:F1}";
             if (hasThirdParty)
             {
-                str += $" vs {latestInfo.CandidateThirdParty} {latestInfo.PopularWinChanceThirdParty:F1}\n";
+                str += $" vs {latestPresidentInfo.CandidateThirdParty} {latestPresidentInfo.PopularWinChanceThirdParty:F1}\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"{ElectoralVotes}: {latestInfo.CandidateIncumbent} {latestInfo.ElectoralVotesIncumbent} vs {latestInfo.CandidateChallenger} {latestInfo.ElectoralVotesChallenger}";
+            str += $"{ElectoralVotes}: {latestPresidentInfo.CandidateIncumbent} {latestPresidentInfo.ElectoralVotesIncumbent} vs {latestPresidentInfo.CandidateChallenger} {latestPresidentInfo.ElectoralVotesChallenger}";
             if (hasThirdParty)
             {
-                str += $" vs {latestInfo.CandidateThirdParty} {latestInfo.ElectoralVotesThirdParty}\n";
+                str += $" vs {latestPresidentInfo.CandidateThirdParty} {latestPresidentInfo.ElectoralVotesThirdParty}\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"{PopularVoteShare}: {latestInfo.CandidateIncumbent} {latestInfo.PopularVoteShareIncumbent:F1} vs {latestInfo.CandidateChallenger} {latestInfo.PopularVoteShareChallenger:F1}";
+            str += $"{PopularVoteShare}: {latestPresidentInfo.CandidateIncumbent} {latestPresidentInfo.PopularVoteShareIncumbent:F1} vs {latestPresidentInfo.CandidateChallenger} {latestPresidentInfo.PopularVoteShareChallenger:F1}";
             if (hasThirdParty)
             {
-                str += $" vs {latestInfo.CandidateThirdParty} {latestInfo.PopularVoteShareThirdParty:F1}\n";
+                str += $" vs {latestPresidentInfo.CandidateThirdParty} {latestPresidentInfo.PopularVoteShareThirdParty:F1}\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"\n14 days ago: {twoWeeksAgoInfo.ModelDate:d}\n";
-            str += $"{ElectoralCollegeWinChance}: {twoWeeksAgoInfo.CandidateIncumbent} {twoWeeksAgoInfo.ECWinChanceIncumbent:F1} ({FormatChange(latestInfo.ECWinChanceIncumbent, twoWeeksAgoInfo.ECWinChanceIncumbent)}) vs {twoWeeksAgoInfo.CandidateChallenger} {twoWeeksAgoInfo.ECWinChanceChallenger:F1} ({FormatChange(latestInfo.ECWinChanceChallenger, twoWeeksAgoInfo.ECWinChanceChallenger)})";
+            str += $"\n14 days ago: {twoWeeksAgoPresidentInfo.ModelDate:d}\n";
+            str += $"{ElectoralCollegeWinChance}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.ECWinChanceIncumbent:F1} ({FormatChange(latestPresidentInfo.ECWinChanceIncumbent, twoWeeksAgoPresidentInfo.ECWinChanceIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.ECWinChanceChallenger:F1} ({FormatChange(latestPresidentInfo.ECWinChanceChallenger, twoWeeksAgoPresidentInfo.ECWinChanceChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoInfo.CandidateThirdParty} {twoWeeksAgoInfo.ECWinChanceThirdParty:F1} ({FormatChange(latestInfo.ECWinChanceThirdParty.Value, twoWeeksAgoInfo.ECWinChanceThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.ECWinChanceThirdParty:F1} ({FormatChange(latestPresidentInfo.ECWinChanceThirdParty.Value, twoWeeksAgoPresidentInfo.ECWinChanceThirdParty.Value)})\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"{PopularVoteWinChance}: {twoWeeksAgoInfo.CandidateIncumbent} {twoWeeksAgoInfo.PopularWinChanceIncumbent:F1} ({FormatChange(latestInfo.PopularWinChanceIncumbent, twoWeeksAgoInfo.PopularWinChanceIncumbent)}) vs {twoWeeksAgoInfo.CandidateChallenger} {twoWeeksAgoInfo.PopularWinChanceChallenger:F1} ({FormatChange(latestInfo.PopularWinChanceChallenger, twoWeeksAgoInfo.PopularWinChanceChallenger)})";
+            str += $"{PopularVoteWinChance}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.PopularWinChanceIncumbent:F1} ({FormatChange(latestPresidentInfo.PopularWinChanceIncumbent, twoWeeksAgoPresidentInfo.PopularWinChanceIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.PopularWinChanceChallenger:F1} ({FormatChange(latestPresidentInfo.PopularWinChanceChallenger, twoWeeksAgoPresidentInfo.PopularWinChanceChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoInfo.CandidateThirdParty} {twoWeeksAgoInfo.PopularWinChanceThirdParty:F1} ({FormatChange(latestInfo.PopularWinChanceThirdParty.Value, twoWeeksAgoInfo.PopularWinChanceThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.PopularWinChanceThirdParty:F1} ({FormatChange(latestPresidentInfo.PopularWinChanceThirdParty.Value, twoWeeksAgoPresidentInfo.PopularWinChanceThirdParty.Value)})\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"{ElectoralVotes}: {twoWeeksAgoInfo.CandidateIncumbent} {twoWeeksAgoInfo.ElectoralVotesIncumbent} ({FormatChange(latestInfo.ElectoralVotesIncumbent, twoWeeksAgoInfo.ElectoralVotesIncumbent)}) vs {twoWeeksAgoInfo.CandidateChallenger} {twoWeeksAgoInfo.ElectoralVotesChallenger} ({FormatChange(latestInfo.ElectoralVotesChallenger, twoWeeksAgoInfo.ElectoralVotesChallenger)})";
+            str += $"{ElectoralVotes}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.ElectoralVotesIncumbent} ({FormatChange(latestPresidentInfo.ElectoralVotesIncumbent, twoWeeksAgoPresidentInfo.ElectoralVotesIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.ElectoralVotesChallenger} ({FormatChange(latestPresidentInfo.ElectoralVotesChallenger, twoWeeksAgoPresidentInfo.ElectoralVotesChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoInfo.CandidateThirdParty} {twoWeeksAgoInfo.ElectoralVotesThirdParty} ({FormatChange(latestInfo.ElectoralVotesThirdParty.Value, twoWeeksAgoInfo.ElectoralVotesThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.ElectoralVotesThirdParty} ({FormatChange(latestPresidentInfo.ElectoralVotesThirdParty.Value, twoWeeksAgoPresidentInfo.ElectoralVotesThirdParty.Value)})\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"{PopularVoteShare}: {twoWeeksAgoInfo.CandidateIncumbent} {twoWeeksAgoInfo.PopularVoteShareIncumbent:F1} ({FormatChange(latestInfo.PopularVoteShareIncumbent, twoWeeksAgoInfo.PopularVoteShareIncumbent)}) vs {twoWeeksAgoInfo.CandidateChallenger} {twoWeeksAgoInfo.PopularVoteShareChallenger:F1} ({FormatChange(latestInfo.PopularVoteShareChallenger, twoWeeksAgoInfo.PopularVoteShareChallenger)})";
+            str += $"{PopularVoteShare}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.PopularVoteShareIncumbent:F1} ({FormatChange(latestPresidentInfo.PopularVoteShareIncumbent, twoWeeksAgoPresidentInfo.PopularVoteShareIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.PopularVoteShareChallenger:F1} ({FormatChange(latestPresidentInfo.PopularVoteShareChallenger, twoWeeksAgoPresidentInfo.PopularVoteShareChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoInfo.CandidateThirdParty} {twoWeeksAgoInfo.PopularVoteShareThirdParty:F1} ({FormatChange(latestInfo.PopularVoteShareThirdParty.Value, twoWeeksAgoInfo.PopularVoteShareThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.PopularVoteShareThirdParty:F1} ({FormatChange(latestPresidentInfo.PopularVoteShareThirdParty.Value, twoWeeksAgoPresidentInfo.PopularVoteShareThirdParty.Value)})\n";
             }
             else
             {
                 str += "\n";
             }
-            str += $"\nModel run timestamp: {latestInfo.Timestamp:s}\n";
-            str += $"Last retrieved: {lastRetrieved:s}";
+            str += $"\nModel run timestamp: {latestPresidentInfo.Timestamp:s}\n";
+
+            SenateModelInfo latestSenateInfo = senateModelInfo.FirstOrDefault();
+            if (latestSenateInfo == null)
+            {
+                str += $"\nLast retrieved: {lastRetrieved:s}";
+                return str;
+            }
+            DateTime senateTwoWeeksAgo = latestSenateInfo.ForecastDate - TimeSpan.FromDays(14);
+            SenateModelInfo twoWeeksAgoSenateInfo = null;
+            foreach (SenateModelInfo info in senateModelInfo)
+            {
+                if (info.ForecastDate == senateTwoWeeksAgo)
+                {
+                    twoWeeksAgoSenateInfo = info;
+                    break;
+                }
+            }
+            if (twoWeeksAgoSenateInfo == null)
+            {
+                str += $"\nLast retrieved: {lastRetrieved:s}";
+                return str;
+            }
+
+            str += $"\n\n{latestSenateInfo.Cycle} Senate Election Forecast\n";
+            str += $"Date: {latestSenateInfo.ForecastDate:d}\n";
+            str += $"{SenateWinChance}: {Republicans} {latestSenateInfo.ChamberRParty:F1} vs {Democrats} {latestSenateInfo.ChamberDParty:F1}\n";
+            str += $"{SenateSeats}: {Republicans} {(int)Math.Round(latestSenateInfo.MeanSeatsRParty)} vs {Democrats} {(int)Math.Round(latestSenateInfo.MeanSeatsDParty)}\n";
+            str += $"\n14 days ago: {twoWeeksAgoSenateInfo.ForecastDate:d}\n";
+            str += $"{SenateWinChance}: {Republicans} {twoWeeksAgoSenateInfo.ChamberRParty:F1} ({FormatChange(latestSenateInfo.ChamberRParty, twoWeeksAgoSenateInfo.ChamberRParty)}) vs {Democrats} {twoWeeksAgoSenateInfo.ChamberDParty:F1} ({FormatChange(latestSenateInfo.ChamberDParty, twoWeeksAgoSenateInfo.ChamberDParty)})\n";
+            str += $"{SenateSeats}: {Republicans} {(int)Math.Round(twoWeeksAgoSenateInfo.MeanSeatsRParty)} ({FormatChange(Math.Round(latestSenateInfo.MeanSeatsRParty), Math.Round(twoWeeksAgoSenateInfo.MeanSeatsRParty))}) vs {Democrats} {(int)Math.Round(twoWeeksAgoSenateInfo.MeanSeatsDParty)} ({FormatChange(Math.Round(latestSenateInfo.MeanSeatsDParty), Math.Round(twoWeeksAgoSenateInfo.MeanSeatsDParty))})\n";
+            str += $"\n\nModel run timestamp: {latestSenateInfo.Timestamp:s}\n";
+            str += $"\nLast retrieved: {lastRetrieved:s}";
             return str;
         }
 
@@ -213,7 +285,7 @@ namespace botbot.Module
             }
         }
 
-        private class ModelInfo
+        private class PresidentModelInfo
         {
             public string Cycle { get; private set; }
             public string Branch { get; private set; }
@@ -238,7 +310,7 @@ namespace botbot.Module
             public double PopularVoteShareOther { get; private set; }
             public DateTime Timestamp { get; private set; }
 
-            public ModelInfo(string line)
+            public PresidentModelInfo(string line)
             {
                 string[] splitLine = line.Split(',');
                 Cycle = splitLine[0];
@@ -290,7 +362,34 @@ namespace botbot.Module
                     PopularVoteShareThirdParty = null;
                 }
                 PopularVoteShareOther = double.Parse(splitLine[26]);
-                Timestamp = DateTime.ParseExact(splitLine[35], new string[] { "HH:mm:ss d MMM yyyy", "HH:mm:ss  d MMM yyyy" }, CultureInfo.InvariantCulture);
+                Timestamp = DateTime.ParseExact(splitLine[38], new string[] { "HH:mm:ss d MMM yyyy", "HH:mm:ss  d MMM yyyy" }, CultureInfo.InvariantCulture);
+            }
+        }
+
+        private class SenateModelInfo
+        {
+            public string Cycle { get; private set; }
+            public string Branch { get; private set; }
+            public string Expression { get; private set; }
+            public DateTime ForecastDate { get; private set; }
+            public double ChamberDParty { get; private set; }
+            public double ChamberRParty { get; private set; }
+            public double MeanSeatsDParty { get; private set; }
+            public double MeanSeatsRParty { get; private set; }
+            public DateTime Timestamp { get; private set; }
+
+            public SenateModelInfo(string line)
+            {
+                string[] splitLine = line.Split(',');
+                Cycle = splitLine[0];
+                Branch = splitLine[1];
+                Expression = splitLine[2];
+                ForecastDate = DateTime.ParseExact(splitLine[3], "M/d/yy", CultureInfo.InvariantCulture);
+                ChamberDParty = double.Parse(splitLine[4]) * 100;
+                ChamberRParty = double.Parse(splitLine[5]) * 100;
+                MeanSeatsDParty = double.Parse(splitLine[6]);
+                MeanSeatsRParty = double.Parse(splitLine[7]);
+                Timestamp = DateTime.ParseExact(splitLine[21], new string[] { "HH:mm:ss d MMM yyyy", "HH:mm:ss  d MMM yyyy" }, CultureInfo.InvariantCulture);
             }
         }
     }

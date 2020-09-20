@@ -48,6 +48,11 @@ namespace botbot.Controllers
                 string str = System.Text.Encoding.UTF8.GetString(stream.ToArray());
                 Settings workspaceSettings = JsonSerializer.Deserialize<Settings>(str);
                 stream.Dispose();
+                if (string.IsNullOrEmpty(workspaceSettings.Id))
+                {
+                    // make sure workspace has ID (discord pending)
+                    continue;
+                }
                 Client client = new Client(workspaceSettings, logger);
                 JsonDocument connectionInfo = await client.GetConnectionInfo();
                 string teamId = connectionInfo.RootElement.GetProperty("team").GetProperty("id").GetString();
