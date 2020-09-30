@@ -146,7 +146,7 @@ namespace botbot
         {
             await webSocket.ConnectAsync(uri, CancellationToken.None);
             slackUsers = await slackCore.UsersList();
-            slackChannels = await slackCore.ChannelsList(1);
+            slackChannels = await slackCore.ConversationsList(true, "public_channel,private_channel");
             await spotifyClient.RequestAccessToken();
 
             messageModules.Add(new PingModule());
