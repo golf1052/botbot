@@ -632,8 +632,10 @@ namespace botbot
         async Task ProcessProfileChange(JObject responseObject)
         {
             var userId = (string)responseObject["user"]["id"];
-            var status = $"{responseObject["user"]["profile"]["status_emoji"]} {responseObject["user"]["profile"]["status_text"]}";
-            if (statusNotifier.HasChanged(userId, status) && !string.IsNullOrWhiteSpace(status))
+            string statusEmoji = (string)responseObject["user"]["profile"]["status_emoji"];
+            var status = $"{statusEmoji} {responseObject["user"]["profile"]["status_text"]}";
+            // filter out Slack automatic "in a call statuses"
+            if (statusNotifier.HasChanged(userId, status) && !string.IsNullOrWhiteSpace(status) && statusEmoji != "📞" && statusEmoji != ":slack_call:")
             {
                 await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
             }
