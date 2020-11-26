@@ -1,13 +1,3 @@
-using botbot.Command;
-using botbot.Module;
-using botbot.Status;
-using golf1052.SlackAPI;
-using golf1052.SlackAPI.Objects;
-using Microsoft.Extensions.Logging;
-using MongoDB.Driver;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Reverb;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -20,6 +10,17 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using botbot.Command;
+using botbot.Module;
+using botbot.Status;
+using Flurl;
+using golf1052.SlackAPI;
+using golf1052.SlackAPI.Objects;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Reverb;
 
 namespace botbot
 {
@@ -456,14 +457,18 @@ namespace botbot
             string text = (string)e.Message["text"];
             string channel = (string)e.Message["channel"];
             string userId = (string)e.Message["user"];
+            string subtype = (string)e.Message["subtype"];
             List<Task<string>> messageModuleTasks = new List<Task<string>>();
-            foreach (var module in messageModules)
+            if (!string.IsNullOrEmpty(text))
             {
-                messageModuleTasks.Add(module.Handle(text, userId, channel));
+                // "normal" messages should have text, messages with subtypes will not have text (probably)
+                foreach (var module in messageModules)
+                {
+                    messageModuleTasks.Add(module.Handle(text, userId, channel));
+                }
             }
             if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(channel))
             {
-                string subtype = (string)e.Message["subtype"];
                 if (string.IsNullOrEmpty(subtype))
                 {
                     return;
@@ -483,9 +488,20 @@ namespace botbot
                         threadTimestamp = (string)newMessage["thread_ts"];
                     }
 
+                    string timestamp = (string)newMessage["ts"];
+                    // threadTimestamp will be null if the message is not in a thread
+                    // to create threads, the bot needs to reply using timestamp
                     foreach (JObject attachment in attachments)
                     {
-                        await ProcessAttachment(newMessage, attachment, channel, threadTimestamp);
+                        // testing to see if originalUrl and fromUrl will ever be different
+                        string originalUrl = (string)attachment["original_url"];
+                        string fromUrl = (string)attachment["from_url"];
+
+                        if (originalUrl != fromUrl)
+                        {
+                            await SendMeMessage($"original_url and from_url are different. original_url: {originalUrl} ! from_url: {fromUrl}");
+                        }
+                        await ProcessAttachment(newMessage, attachment, channel, timestamp, threadTimestamp);
                     }
                     //else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio
                     //{
@@ -737,10 +753,11 @@ namespace botbot
             return ids;
         }
 
-        private async Task ProcessAttachment(JObject newMessage, JObject attachment, string channel, string threadTimestamp)
+        private async Task ProcessAttachment(JObject newMessage, JObject attachment, string channel, string timestamp, string threadTimestamp)
         {
             await ProcessGooglePlayMusicAttachment(newMessage, attachment, channel, threadTimestamp);
             await ProcessHackerNewsAttachment(newMessage, attachment, channel, threadTimestamp);
+            await ProcessSpotifyDirectLinkAttachment(newMessage, attachment, channel, timestamp, threadTimestamp);
         }
 
         private async Task ProcessGooglePlayMusicAttachment(JObject newMessage, JObject attachment, string channel, string threadTimestamp)
@@ -822,6 +839,26 @@ namespace botbot
             }
         }
 
+        private async Task ProcessSpotifyDirectLinkAttachment(JObject newMessage, JObject attachment, string channel, string timestamp, string threadTimestamp)
+        {
+            string fromUrl = (string)attachment["from_url"];
+            if (string.IsNullOrEmpty(fromUrl) || !fromUrl.StartsWith("https://open.spotify.com"))
+            {
+                return;
+            }
+            Url url = new Url(fromUrl);
+            string[] splitPath = url.Path.Split('/');
+            string directLink = $"spotify:{splitPath[splitPath.Length - 2]}:{splitPath[splitPath.Length - 1]}";
+            if (string.IsNullOrEmpty(threadTimestamp))
+            {
+                await SendSlackMessage(directLink, channel, timestamp);
+            }
+            else
+            {
+                await SendSlackMessage(directLink, channel, threadTimestamp);
+            }
+        }
+
         public T GetRandomFromList<T>(List<T> list)
         {
             Random random = new Random();
@@ -843,6 +880,19 @@ namespace botbot
                 }
             }
             await SendSlackMessage(message, channel);
+        }
+
+        /// <summary>
+        /// Sends a message to me (Sanders)
+        /// </summary>
+        /// <param name="message">Message text</param>
+        public async Task SendMeMessage(string message)
+        {
+            if (!string.IsNullOrEmpty(settings.MyUsername))
+            {
+                string imChannel = await slackCore.ConversationsOpen(null, false, new List<string>() { GetUserIdByName(settings.MyUsername) });
+                await SendSlackMessage(message, imChannel);
+            }
         }
 
         public async Task SendSlackMessage(string message, string channel)

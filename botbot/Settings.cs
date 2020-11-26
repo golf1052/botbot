@@ -32,5 +32,8 @@ namespace botbot
 
         [JsonPropertyName("hubot_enabled")]
         public bool HubotEnabled { get; set; }
+
+        [JsonPropertyName("my_username")]
+        public string MyUsername { get; set; }
     }
 }
