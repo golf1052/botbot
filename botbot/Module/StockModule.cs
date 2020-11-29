@@ -8,13 +8,17 @@ namespace botbot.Module
 {
     public class StockModule : IMessageModule
     {
-        public async Task<string> Handle(string text, string userId, string channel)
+        public async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             if (text.ToLower().StartsWith("botbot stock "))
             {
-                return await BotBotController.stockCommand.Handle(text.ToLower().Replace("botbot stock ", ""), userId);
+                string message = await BotBotController.stockCommand.Handle(text.ToLower().Replace("botbot stock ", ""), userId);
+                return new ModuleResponse()
+                {
+                    Message = message
+                };
             }
-            return null;
+            return new ModuleResponse();
         }
     }
 }

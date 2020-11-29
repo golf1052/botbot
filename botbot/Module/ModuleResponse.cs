@@ -5,8 +5,9 @@ using System.Threading.Tasks;
 
 namespace botbot.Module
 {
-    public interface IMessageModule
+    public class ModuleResponse
     {
-        Task<ModuleResponse> Handle(string text, string userId, string channel);
+        public string Message { get; set; }
+        public string Timestamp { get; set; }
     }
 }

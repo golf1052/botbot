@@ -38,14 +38,14 @@ namespace botbot.Module
             lastRetrieved = DateTimeOffset.UnixEpoch;
         }
         
-        public async Task<string> Handle(string text, string userId, string channel)
+        public async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             if (text.ToLower().StartsWith("botbot election"))
             {
                 await RetrieveLatestModel();
                 return GetLatestForecast();
             }
-            return null;
+            return new ModuleResponse();
         }
 
         private async Task RetrieveLatestModel()
@@ -133,12 +133,12 @@ namespace botbot.Module
             }
         }
 
-        private string GetLatestForecast()
+        private ModuleResponse GetLatestForecast()
         {
             PresidentModelInfo latestPresidentInfo = presidentModelInfo.FirstOrDefault();
             if (latestPresidentInfo == null)
             {
-                return null;
+                return new ModuleResponse();
             }
             DateTime presidentTwoWeeksAgo = latestPresidentInfo.ModelDate - TimeSpan.FromDays(14);
             PresidentModelInfo twoWeeksAgoPresidentInfo = null;
@@ -238,7 +238,10 @@ namespace botbot.Module
             if (latestSenateInfo == null)
             {
                 str += $"\nLast retrieved: {lastRetrieved:s}";
-                return str;
+                return new ModuleResponse()
+                {
+                    Message = str
+                };
             }
             DateTime senateTwoWeeksAgo = latestSenateInfo.ForecastDate - TimeSpan.FromDays(14);
             SenateModelInfo twoWeeksAgoSenateInfo = null;
@@ -253,7 +256,10 @@ namespace botbot.Module
             if (twoWeeksAgoSenateInfo == null)
             {
                 str += $"\nLast retrieved: {lastRetrieved:s}";
-                return str;
+                return new ModuleResponse()
+                {
+                    Message = str
+                };
             }
 
             str += $"\n\n{latestSenateInfo.Cycle} Senate Election Forecast\n";
@@ -265,7 +271,10 @@ namespace botbot.Module
             str += $"{SenateSeats}: {Republicans} {(int)Math.Round(twoWeeksAgoSenateInfo.MeanSeatsRParty)} ({FormatChange(Math.Round(latestSenateInfo.MeanSeatsRParty), Math.Round(twoWeeksAgoSenateInfo.MeanSeatsRParty))}) vs {Democrats} {(int)Math.Round(twoWeeksAgoSenateInfo.MeanSeatsDParty)} ({FormatChange(Math.Round(latestSenateInfo.MeanSeatsDParty), Math.Round(twoWeeksAgoSenateInfo.MeanSeatsDParty))})\n";
             str += $"\n\nModel run timestamp: {latestSenateInfo.Timestamp:s}\n";
             str += $"\nLast retrieved: {lastRetrieved:s}";
-            return str;
+            return new ModuleResponse()
+            {
+                Message = str
+            };
         }
 
         private string FormatChange(double current, double previous)

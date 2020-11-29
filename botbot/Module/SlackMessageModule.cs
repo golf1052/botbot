@@ -17,7 +17,7 @@ namespace botbot.Module
             SendSlackMessageFunc = SendSlackMessage;
         }
 
-        public abstract Task<string> Handle(string text, string userId, string channel);
+        public abstract Task<ModuleResponse> Handle(string text, string userId, string channel);
 
         protected async Task SendSlackMessage(string message, string channel)
         {

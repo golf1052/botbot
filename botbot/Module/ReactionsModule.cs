@@ -15,14 +15,18 @@ namespace botbot.Module
         {
         }
 
-        public override async Task<string> Handle(string text, string userId, string channel)
+        public override async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             if (text.ToLower() == "botbot reactions")
             {
                 await SendSlackMessage("Calculating reactions count, this might take me a minute...", channel);
-                return await CalculateReactions(await slackCore.UsersList());
+                string message = await CalculateReactions(await slackCore.UsersList());
+                return new ModuleResponse()
+                {
+                    Message = message
+                };
             }
-            return null;
+            return new ModuleResponse();
         }
 
         private async Task<string> CalculateReactions(List<SlackUser> slackUsers)
@@ -32,18 +36,18 @@ namespace botbot.Module
             {
                 reactions.AddRange(await slackCore.ReactionsList(user.Id, allItems: true));
             }
-            Dictionary<string, Dictionary<DateTime, int>> topReactions = new Dictionary<string, Dictionary<DateTime, int>>();
+            Dictionary<string, Dictionary<string, int>> topReactions = new Dictionary<string, Dictionary<string, int>>();
             Dictionary<string, int> topR = new Dictionary<string, int>();
             foreach (SlackEvent reaction in reactions)
             {
                 if (reaction.Type == SlackEvent.SlackEventType.Message)
                 {
-                    Message message = reaction as Message;
+                    SlackMessage message = reaction as SlackMessage;
                     foreach (Reaction r in message.Reactions)
                     {
                         if (!topReactions.ContainsKey(r.Name))
                         {
-                            topReactions.Add(r.Name, new Dictionary<DateTime, int>());
+                            topReactions.Add(r.Name, new Dictionary<string, int>());
                         }
                         if (!topReactions[r.Name].ContainsKey(message.Timestamp))
                         {
@@ -52,9 +56,9 @@ namespace botbot.Module
                     }
                 }
             }
-            foreach (KeyValuePair<string, Dictionary<DateTime, int>> pair in topReactions)
+            foreach (KeyValuePair<string, Dictionary<string, int>> pair in topReactions)
             {
-                foreach (KeyValuePair<DateTime, int> timePair in pair.Value)
+                foreach (KeyValuePair<string, int> timePair in pair.Value)
                 {
                     if (!topR.ContainsKey(pair.Key))
                     {

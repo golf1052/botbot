@@ -12,14 +12,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using botbot.Command;
 using botbot.Module;
+using botbot.Module.SlackAttachments;
 using botbot.Status;
-using Flurl;
 using golf1052.SlackAPI;
+using golf1052.SlackAPI.Events;
 using golf1052.SlackAPI.Objects;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using Reverb;
 
 namespace botbot
@@ -35,7 +37,6 @@ namespace botbot
 
         static Client()
         {
-            responded = false;
             Mongo = new MongoClient(Secrets.MongoConnectionString);
             PlusPlusDatabase = Mongo.GetDatabase("plusplus");
             ThingCollection = PlusPlusDatabase.GetCollection<PlusPlusThing>("things");
@@ -48,15 +49,6 @@ namespace botbot
         private List<SlackUser> slackUsers;
         private List<SlackChannel> slackChannels;
         private ClientWebSocket webSocket;
-        static bool responded;
-        List<string> pingResponses = new List<string>(new string[]
-        { "pong", "hello", "hi", "what's up!", "I am always alive.", "hubot is an inferior bot.",
-        "botbot at your service!", "lol", "fuck"});
-
-        List<string> hiResponses = new List<string>(new string[]
-        {
-            "hello", "hi", "what's up!", "sup fucker"
-        });
 
         List<string> helpResponses = new List<string>(new string[]
         {
@@ -100,16 +92,20 @@ namespace botbot
         NewReleasesCommand newReleasesCommand;
         NewReleasesGPMCommand newReleasesGPMCommand;
 
-        List<IMessageModule> messageModules;
-        List<IEventModule> eventModules;
+        private List<IMessageModule> messageModules;
+        private List<IEventModule> eventModules;
+        private List<ISlackAttachmentModule> attachmentModules;
         HubotModule hubotModule;
         StatusNotifier statusNotifier;
 
         HttpClient httpClient;
 
+        private JsonSerializerSettings jsonSerializerSettings;
+
         public Client(Settings settings, ILogger<Client> logger)
         {
             this.settings = settings;
+            this.logger = logger;
             httpClient = new HttpClient();
             webSocket = new ClientWebSocket();
             MessageReceived += Client_MessageReceived;
@@ -126,8 +122,15 @@ namespace botbot
             newReleasesGPMCommand = new NewReleasesGPMCommand();
             messageModules = new List<IMessageModule>();
             eventModules = new List<IEventModule>();
+            attachmentModules = new List<ISlackAttachmentModule>();
             statusNotifier = new StatusNotifier(settings.Id);
-            this.logger = logger;
+            jsonSerializerSettings = new JsonSerializerSettings()
+            {
+                ContractResolver = new DefaultContractResolver()
+                {
+                    NamingStrategy = new SnakeCaseNamingStrategy()
+                }
+            };
         }
 
         public async Task<JsonDocument> GetConnectionInfo()
@@ -166,6 +169,10 @@ namespace botbot
                 await hubotModule.Init(settings.Token);
                 eventModules.Add(hubotModule);
             }
+
+            attachmentModules.Add(new GooglePlayMusicModule());
+            attachmentModules.Add(new HackerNewsModule(settings));
+            attachmentModules.Add(new SpotifyDirectLinkModule());
 
             foreach (var eventModule in eventModules)
             {
@@ -362,6 +369,7 @@ namespace botbot
                                 {
                                     _ = hubotModule.Handle(messageType, o);
                                 }
+                                // why is this an event? events are synchronous so this could just be a function call
                                 SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
                                 newMessage.Message = o;
                                 MessageReceived(this, newMessage);
@@ -454,61 +462,40 @@ namespace botbot
 
         private async void Client_MessageReceived(object sender, SlackMessageEventArgs e)
         {
-            string text = (string)e.Message["text"];
-            string channel = (string)e.Message["channel"];
-            string userId = (string)e.Message["user"];
-            string subtype = (string)e.Message["subtype"];
-            List<Task<string>> messageModuleTasks = new List<Task<string>>();
-            if (!string.IsNullOrEmpty(text))
+            SlackMessage slackMessage = JsonConvert.DeserializeObject<SlackMessage>(e.Message.ToString(), jsonSerializerSettings);
+            List<Task<ModuleResponse>> moduleTasks = new List<Task<ModuleResponse>>();
+            if (!string.IsNullOrEmpty(slackMessage.Text))
             {
                 // "normal" messages should have text, messages with subtypes will not have text (probably)
                 foreach (var module in messageModules)
                 {
-                    messageModuleTasks.Add(module.Handle(text, userId, channel));
+                    moduleTasks.Add(module.Handle(slackMessage.Text, slackMessage.User, slackMessage.Channel));
                 }
             }
-            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(channel))
+            if (string.IsNullOrEmpty(slackMessage.Text) || string.IsNullOrEmpty(slackMessage.Channel))
             {
-                if (string.IsNullOrEmpty(subtype))
+                if (slackMessage.Subtype == "message_changed")
                 {
-                    return;
-                }
-                if (subtype == "message_changed")
-                {
-                    JObject newMessage = (JObject)e.Message["message"];
-                    JArray attachments = (JArray)newMessage["attachments"];
-                    if (attachments == null)
-                    {
-                        return;
-                    }
-
-                    string threadTimestamp = null;
-                    if (newMessage["thread_ts"] != null)
-                    {
-                        threadTimestamp = (string)newMessage["thread_ts"];
-                    }
-
-                    string timestamp = (string)newMessage["ts"];
                     // threadTimestamp will be null if the message is not in a thread
                     // to create threads, the bot needs to reply using timestamp
-                    foreach (JObject attachment in attachments)
+                    foreach (Attachment attachment in slackMessage.Message.Attachments)
                     {
                         // testing to see if originalUrl and fromUrl will ever be different
-                        string originalUrl = (string)attachment["original_url"];
-                        string fromUrl = (string)attachment["from_url"];
-
-                        if (originalUrl != fromUrl)
+                        if (attachment.OriginalUrl != attachment.FromUrl)
                         {
-                            await SendMeMessage($"original_url and from_url are different. original_url: {originalUrl} ! from_url: {fromUrl}");
+                            await SendMeMessage($"original_url and from_url are different. original_url: {attachment.OriginalUrl} ! from_url: {attachment.FromUrl}");
                         }
-                        await ProcessAttachment(newMessage, attachment, channel, timestamp, threadTimestamp);
+
+                        foreach (var module in attachmentModules)
+                        {
+                            moduleTasks.Add(module.Handle(slackMessage, attachment));
+                        }
                     }
                     //else if (channel == "C0ANB9SMV" || channel == "G0L8C7Q6L") // radio
                     //{
                     //    await ProcessRadioAttachment(e);
                     //}
                 }
-                return;
             }
             //else if (text.ToLower() == "hubot ping")
             //{
@@ -526,22 +513,22 @@ namespace botbot
             //        responded = true;
             //    }
             //}
-            if (text.ToLower() == "botbot help")
+            if (!string.IsNullOrEmpty(slackMessage.Text) && slackMessage.Text.ToLower() == "botbot help")
             {
-                await SendSlackMessage(GetRandomFromList(helpResponses), channel);
+                await SendSlackMessage(GetRandomFromList(helpResponses), slackMessage.Channel);
             }
-            else if (text.ToLower() == "botbot commands")
+            else if (!string.IsNullOrEmpty(slackMessage.Text) && slackMessage.Text.ToLower() == "botbot commands")
             {
                 foreach (string command in commands)
                 {
-                    await SendSlackMessage($"botbot {command}", channel);
+                    await SendSlackMessage($"botbot {command}", slackMessage.Channel);
                 }
             }
-            else if (text.ToLower().StartsWith("botbot spotify"))
+            else if (!string.IsNullOrEmpty(slackMessage.Text) && slackMessage.Text.ToLower().StartsWith("botbot spotify"))
             {
-                if (channel.StartsWith('D'))
+                if (slackMessage.Channel.StartsWith('D'))
                 {
-                    await spotifyGetYearsAlbums.Receive(text, channel, userId);
+                    await spotifyGetYearsAlbums.Receive(slackMessage.Text, slackMessage.Channel, slackMessage.User);
                 }
             }
             //else if (text.ToLower() == "botbot playlist")
@@ -570,7 +557,7 @@ namespace botbot
             //        await SendSlackMessage("Finished Spotify auth", channel);
             //    }
             //}
-            else if (text.ToLower().StartsWith("botbot "))
+            else if (!string.IsNullOrEmpty(slackMessage.Text) && slackMessage.Text.ToLower().StartsWith("botbot "))
             {
                 //string plusPlusStatusMessage = string.Empty;
                 //plusPlusStatusMessage = PlusPlus.CheckErase(text, channel, (string)e.Message["user"]);
@@ -593,9 +580,9 @@ namespace botbot
                 //}
                 //await SendSlackMessage(GetRandomFromList(iDontKnow), channel);
             }
-            else if (channel.StartsWith('D'))
+            else if (!string.IsNullOrEmpty(slackMessage.Text) && slackMessage.Channel.StartsWith('D'))
             {
-                await spotifyGetYearsAlbums.Receive(text, channel, userId);
+                await spotifyGetYearsAlbums.Receive(slackMessage.Text, slackMessage.Channel, slackMessage.User);
             }
             //if (GetUserIdByName("botbot") != userId &&
             //    GetChannelIdByName(settings.TechChannel) == channel)
@@ -615,17 +602,17 @@ namespace botbot
             while (!allTasksDone)
             {
                 allTasksDone = true;
-                for (int i = 0; i < messageModuleTasks.Count; i++)
+                for (int i = 0; i < moduleTasks.Count; i++)
                 {
-                    var task = messageModuleTasks[i];
+                    var task = moduleTasks[i];
                     if (task.IsCompletedSuccessfully)
                     {
-                        string result = await task;
-                        if (!string.IsNullOrWhiteSpace(result))
+                        ModuleResponse result = await task;
+                        if (result != null && !string.IsNullOrWhiteSpace(result.Message))
                         {
-                            await SendSlackMessage(result, channel);
+                            await SendSlackMessage(result.Message, slackMessage.Channel, result.Timestamp);
                         }
-                        messageModuleTasks.RemoveAt(i);
+                        moduleTasks.RemoveAt(i);
                         i--;
                         continue;
                     }
@@ -633,7 +620,7 @@ namespace botbot
                     {
                         // do something
                         logger.LogWarning($"task failed {task.Exception.Message}");
-                        messageModuleTasks.RemoveAt(i);
+                        moduleTasks.RemoveAt(i);
                         i--;
                         continue;
                     }
@@ -751,112 +738,6 @@ namespace botbot
                 }
             }
             return ids;
-        }
-
-        private async Task ProcessAttachment(JObject newMessage, JObject attachment, string channel, string timestamp, string threadTimestamp)
-        {
-            await ProcessGooglePlayMusicAttachment(newMessage, attachment, channel, threadTimestamp);
-            await ProcessHackerNewsAttachment(newMessage, attachment, channel, threadTimestamp);
-            await ProcessSpotifyDirectLinkAttachment(newMessage, attachment, channel, timestamp, threadTimestamp);
-        }
-
-        private async Task ProcessGooglePlayMusicAttachment(JObject newMessage, JObject attachment, string channel, string threadTimestamp)
-        {
-            string serviceName = (string)attachment["service_name"];
-            string originalUrl = (string)attachment["original_url"];
-            if (serviceName == "play.google.com" && originalUrl.Contains("/music/"))
-            {
-                string title = (string)attachment["title"];
-                // ampersands are escaped as "&amp;" so turn it into a regular &
-                title = title.Replace("&amp;", "&");
-                string[] splitTitle = title.Split("-");
-                string guessTitle = string.Empty;
-                string guessArtist = string.Empty;
-                if (splitTitle.Length > 0)
-                {
-                    guessTitle = splitTitle[0].Trim();
-                }
-                if (splitTitle.Length > 1)
-                {
-                    guessArtist = splitTitle[1].Trim();
-                }
-
-                if (spotifyClient.AccessTokenExpiresAt <= DateTimeOffset.UtcNow)
-                {
-                    await spotifyClient.RefreshAccessToken();
-                }
-                var searchResult = await spotifyClient.Search(title,
-                    new List<SpotifyConstants.SpotifySearchTypes> { SpotifyConstants.SpotifySearchTypes.Album, SpotifyConstants.SpotifySearchTypes.Track });
-                var firstAlbum = searchResult.Albums.Items.FirstOrDefault();
-                var firstTrack = searchResult.Tracks.Items.FirstOrDefault();
-                string spotifyLink = string.Empty;
-                if (firstAlbum != null)
-                {
-                    var artist = firstAlbum.Artists.FirstOrDefault();
-                    if (artist?.Name == guessArtist && firstAlbum.Name == guessTitle)
-                    {
-                        if (firstAlbum.ExternalUrls.ContainsKey("spotify"))
-                        {
-                            spotifyLink = firstAlbum.ExternalUrls["spotify"];
-                        }
-                    }
-                }
-
-                if (string.IsNullOrEmpty(spotifyLink) && firstTrack != null)
-                {
-                    var artist = firstTrack.Artists.FirstOrDefault();
-                    if (artist?.Name == guessArtist && firstTrack.Name == guessTitle)
-                    {
-                        if (firstTrack.ExternalUrls.ContainsKey("spotify"))
-                        {
-                            spotifyLink = firstTrack.ExternalUrls["spotify"];
-                        }
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(spotifyLink))
-                {
-                    await SendSlackMessage($"Spotify Link: {spotifyLink}", channel, threadTimestamp);
-                }
-            }
-        }
-
-        private async Task ProcessHackerNewsAttachment(JObject newMessage, JObject attachment, string channel, string threadTimestamp)
-        {
-            if (channel == GetChannelIdByName(settings.TechChannel))
-            {
-                string url = (string)attachment["title_link"];
-                if (string.IsNullOrEmpty(url))
-                {
-                    return;
-                }
-                SearchItem hackerNewsItem = await HackerNewsApi.Search(url);
-                if (hackerNewsItem == null)
-                {
-                    return;
-                }
-                await SendSlackMessage($"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}", channel, threadTimestamp);
-            }
-        }
-
-        private async Task ProcessSpotifyDirectLinkAttachment(JObject newMessage, JObject attachment, string channel, string timestamp, string threadTimestamp)
-        {
-            string fromUrl = (string)attachment["from_url"];
-            if (string.IsNullOrEmpty(fromUrl) || !fromUrl.StartsWith("https://open.spotify.com"))
-            {
-                return;
-            }
-            Url url = new Url(fromUrl);
-            string[] splitPath = url.Path.Split('/');
-            string directLink = $"spotify:{splitPath[splitPath.Length - 2]}:{splitPath[splitPath.Length - 1]}";
-            if (string.IsNullOrEmpty(threadTimestamp))
-            {
-                await SendSlackMessage(directLink, channel, timestamp);
-            }
-            else
-            {
-                await SendSlackMessage(directLink, channel, threadTimestamp);
-            }
         }
 
         public T GetRandomFromList<T>(List<T> list)

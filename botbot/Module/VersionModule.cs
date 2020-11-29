@@ -7,13 +7,16 @@ namespace botbot.Module
     {
         private const string Version = "43.0.0";
 
-        public async Task<string> Handle(string text, string userId, string channel)
+        public Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             if (text.ToLower() == "botbot version")
             {
-                return Version;
+                return Task.FromResult(new ModuleResponse()
+                {
+                    Message = Version
+                });
             }
-            return null;
+            return Task.FromResult(new ModuleResponse());
         }
     }
 }

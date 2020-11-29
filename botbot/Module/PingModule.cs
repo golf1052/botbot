@@ -11,13 +11,16 @@ namespace botbot.Module
         { "pong", "hello", "hi", "what's up!", "I am always alive.", "hubot is an inferior bot.",
         "botbot at your service!", "lol", "fuck"});
 
-        public async Task<string> Handle(string text, string userId, string channel)
+        public Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             if (text.ToLower() == "botbot ping")
             {
-                return GetRandomFromList(pingResponses);
+                return Task.FromResult(new ModuleResponse()
+                {
+                    Message = GetRandomFromList(pingResponses)
+                });
             }
-            return null;
+            return Task.FromResult(new ModuleResponse());
         }
 
         public T GetRandomFromList<T>(List<T> list)

@@ -17,7 +17,7 @@ namespace botbot.Module
             newReleasesGPMCommand = new NewReleasesGPMCommand();
         }
 
-        public async Task<string> Handle(string text, string userId, string channel)
+        public async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             if (text.ToLower().StartsWith("botbot new releases"))
             {
@@ -25,15 +25,23 @@ namespace botbot.Module
                 {
                     if (text.ToLower().StartsWith("botbot new releases gpm"))
                     {
-                        return await newReleasesGPMCommand.Handle(text.Replace("botbot new releases gpm", "").Trim(), userId);
+                        string message = await newReleasesGPMCommand.Handle(text.Replace("botbot new releases gpm", "").Trim(), userId);
+                        return new ModuleResponse()
+                        {
+                            Message = message
+                        };
                     }
                     else
                     {
-                        return await newReleasesCommand.Handle(text.Replace("botbot new releases", "").Trim(), userId);
+                        string message = await newReleasesCommand.Handle(text.Replace("botbot new releases", "").Trim(), userId);
+                        return new ModuleResponse()
+                        {
+                            Message = message
+                        };
                     }
                 }
             }
-            return null;
+            return new ModuleResponse();
         }
     }
 }

@@ -10,10 +10,19 @@ namespace botbot
 {
     public class HackerNewsApi
     {
-        public static async Task<SearchItem> Search(string url)
+        private HttpClient httpClient;
+
+        public HackerNewsApi() : this(new HttpClient())
         {
-            HttpClient client = new HttpClient();
-            HttpResponseMessage response = await client.GetAsync($"http://hn.algolia.com/api/v1/search?query={url}&restrictSearchableAttributes=url");
+        }
+
+        public HackerNewsApi(HttpClient httpClient)
+        {
+            this.httpClient = httpClient;
+        }
+        public async Task<SearchItem> Search(string url)
+        {
+            HttpResponseMessage response = await httpClient.GetAsync($"http://hn.algolia.com/api/v1/search?query={url}&restrictSearchableAttributes=url");
             if (response.StatusCode != System.Net.HttpStatusCode.OK)
             {
                 return null;

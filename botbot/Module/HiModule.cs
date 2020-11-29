@@ -12,13 +12,16 @@ namespace botbot.Module
             "hello", "hi", "what's up!", "sup fucker"
         });
 
-        public async Task<string> Handle(string text, string userId, string channel)
+        public Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             if (text.ToLower() == "hi botbot")
             {
-                return GetRandomFromList(hiResponses);
+                return Task.FromResult(new ModuleResponse()
+                {
+                    Message = GetRandomFromList(hiResponses)
+                });
             }
-            return null;
+            return Task.FromResult(new ModuleResponse());
         }
 
         public T GetRandomFromList<T>(List<T> list)
