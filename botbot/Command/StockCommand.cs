@@ -39,15 +39,20 @@ namespace botbot.Command
             BestMatch stock = searchResponse.BestMatches[0];
             try
             {
-                var result = await client.Stocks.Daily(stock.Symbol).GetAsync();
-                TimeSeriesEntry firstEntry = result.Data.FirstOrDefault();
-                if (firstEntry == null)
+                // the Intraday result doesn't contain the open/close price for a day, just the open and close price for a interval
+                var dailyResult = await client.Stocks.Daily(stock.Symbol).GetAsync();
+                var intraDayResult = await client.Stocks.IntraDay(stock.Symbol)
+                    .SetInterval(Interval.OneMinute)
+                    .GetAsync();
+                TimeSeriesEntry firstDailyResult = dailyResult.Data.FirstOrDefault();
+                TimeSeriesEntry firstIntradayResult = intraDayResult.Data.FirstOrDefault();
+                if (firstDailyResult == null || firstIntradayResult == null)
                 {
                     return $"No stock info found for {stock.Symbol}: {stock.Name}";
                 }
 
-                double change = firstEntry.Close - firstEntry.Open;
-                double percentChange = PercentChange(firstEntry.Close, firstEntry.Open);
+                double change = firstIntradayResult.Close - firstDailyResult.Open;
+                double percentChange = PercentChange(firstIntradayResult.Close, firstDailyResult.Open);
                 string changeString;
                 if (change > 0)
                 {
@@ -61,7 +66,7 @@ namespace botbot.Command
                 {
                     changeString = "Down";
                 }
-                return $"{stock.Symbol}: {stock.Name}\n{firstEntry.Close}\n{changeString}: {change:C} ({percentChange:P2})";
+                return $"{stock.Symbol}: {stock.Name}\n{firstIntradayResult.Close}\n{changeString}: {change:C} ({percentChange:P2})";
             }
             catch (AlphaVantageApiLimitException)
             {
