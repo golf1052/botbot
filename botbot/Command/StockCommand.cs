@@ -66,7 +66,12 @@ namespace botbot.Command
                 {
                     changeString = "Down";
                 }
-                return $"{stock.Symbol}: {stock.Name}\n{firstIntradayResult.Close}\n{changeString}: {change:C} ({percentChange:P2})";
+
+                string lastRefreshed = intraDayResult.Meta["Last Refreshed"];
+                string timeZone = intraDayResult.Meta["Time Zone"];
+                DateTime parsedLastRefresh = DateTime.Parse(lastRefreshed);
+                DateTime firstResultTimstamp = firstIntradayResult.Timestamp;
+                return $"{stock.Symbol}: {stock.Name}\n{firstIntradayResult.Close} (as of {firstResultTimstamp:s} {timeZone})\n{changeString}: {change:C} ({percentChange:P2})\nLast Refreshed: {parsedLastRefresh:s} {timeZone}";
             }
             catch (AlphaVantageApiLimitException)
             {
