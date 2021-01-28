@@ -9,7 +9,7 @@ namespace botbot.Command
 {
     public class PresidentApprovalCommand : ISlackCommand
     {
-        private const string ApprovalCSV = "https://projects.fivethirtyeight.com/trump-approval-data/approval_topline.csv";
+        private const string ApprovalCSV = "https://projects.fivethirtyeight.com/biden-approval-data/approval_topline.csv";
         private const string ExpectedHeader = "president,subgroup,modeldate,approve_estimate,approve_hi,approve_lo,disapprove_estimate,disapprove_hi,disapprove_lo,timestamp";
         private HttpClient httpClient;
         private static List<ApprovalInfo> approvalInfo;
@@ -68,7 +68,7 @@ namespace botbot.Command
         {
             ApprovalInfo latestInfo = approvalInfo.First(a => a.Subgroup == "All polls");
             DateTime latestModel = latestInfo.ModelDate;
-            DateTime monthWindowDate = latestModel - TimeSpan.FromDays(29);
+            DateTime monthWindowDate = latestModel - TimeSpan.FromDays(30);
             List<ApprovalInfo> approvalInfoRange = new List<ApprovalInfo>();
             foreach (ApprovalInfo info in approvalInfo)
             {
@@ -86,6 +86,7 @@ namespace botbot.Command
             }
             string str = $"{latestInfo.President} approval ratings\n";
             ApprovalInfo oldestRangeInfo = approvalInfoRange[approvalInfoRange.Count - 1];
+            TimeSpan range = latestModel - oldestRangeInfo.ModelDate;
             double approvalChange = latestInfo.ApprovalEstimate - oldestRangeInfo.ApprovalEstimate;
             double disapprovalChange = latestInfo.DisapprovalEstimate - oldestRangeInfo.DisapprovalEstimate;
             ApprovalInfo maxApproval = latestInfo;
@@ -115,16 +116,16 @@ namespace botbot.Command
             if (latestInfo.ApprovalEstimate >= latestInfo.DisapprovalEstimate)
             {
                 str += $"Today's approval: {latestInfo.ApprovalEstimate:F1}\nToday's disapproval: {latestInfo.DisapprovalEstimate:F1}\n";
-                str += $"Approval 30 days ago: {oldestRangeInfo.ApprovalEstimate:F1} ({FormatChange(latestInfo.ApprovalEstimate, oldestRangeInfo.ApprovalEstimate)})\nDisapproval 30 days ago: {oldestRangeInfo.DisapprovalEstimate:F1} ({FormatChange(latestInfo.DisapprovalEstimate, oldestRangeInfo.DisapprovalEstimate)})\n";
-                str += $"Approval range for 30 days: {FormatChange(latestInfo.ApprovalEstimate, maxApproval.ApprovalEstimate)} from high ({maxApproval.ApprovalEstimate:F1}), {FormatChange(latestInfo.ApprovalEstimate, minApproval.ApprovalEstimate)} from low ({minApproval.ApprovalEstimate:F1})\n";
-                str += $"Disapproval range for 30 days: {FormatChange(latestInfo.DisapprovalEstimate, maxDisapproval.DisapprovalEstimate)} from high ({maxDisapproval.DisapprovalEstimate:F1}), {FormatChange(latestInfo.DisapprovalEstimate, minDisapproval.DisapprovalEstimate)} from low ({minDisapproval.DisapprovalEstimate:F1})";
+                str += $"Approval {range.TotalDays} days ago: {oldestRangeInfo.ApprovalEstimate:F1} ({FormatChange(latestInfo.ApprovalEstimate, oldestRangeInfo.ApprovalEstimate)})\nDisapproval {range.TotalDays} days ago: {oldestRangeInfo.DisapprovalEstimate:F1} ({FormatChange(latestInfo.DisapprovalEstimate, oldestRangeInfo.DisapprovalEstimate)})\n";
+                str += $"Approval range for {range.TotalDays} days: {FormatChange(latestInfo.ApprovalEstimate, maxApproval.ApprovalEstimate)} from high ({maxApproval.ApprovalEstimate:F1}), {FormatChange(latestInfo.ApprovalEstimate, minApproval.ApprovalEstimate)} from low ({minApproval.ApprovalEstimate:F1})\n";
+                str += $"Disapproval range for {range.TotalDays} days: {FormatChange(latestInfo.DisapprovalEstimate, maxDisapproval.DisapprovalEstimate)} from high ({maxDisapproval.DisapprovalEstimate:F1}), {FormatChange(latestInfo.DisapprovalEstimate, minDisapproval.DisapprovalEstimate)} from low ({minDisapproval.DisapprovalEstimate:F1})";
             }
             else
             {
                 str += $"Today's disapproval: {latestInfo.DisapprovalEstimate:F1}\nToday's approval: {latestInfo.ApprovalEstimate:F1}\n";
-                str += $"Disapproval 30 days ago: {oldestRangeInfo.DisapprovalEstimate:F1} ({FormatChange(latestInfo.DisapprovalEstimate, oldestRangeInfo.DisapprovalEstimate)})\nApproval 30 days ago: {oldestRangeInfo.ApprovalEstimate:F1} ({FormatChange(latestInfo.ApprovalEstimate, oldestRangeInfo.ApprovalEstimate)})\n";
-                str += $"Disapproval range for 30 days: {FormatChange(latestInfo.DisapprovalEstimate, maxDisapproval.DisapprovalEstimate)} from high ({maxDisapproval.DisapprovalEstimate:F1}), {FormatChange(latestInfo.DisapprovalEstimate, minDisapproval.DisapprovalEstimate)} from low ({minDisapproval.DisapprovalEstimate:F1})\n";
-                str += $"Approval range for 30 days: {FormatChange(latestInfo.ApprovalEstimate, maxApproval.ApprovalEstimate)} from high ({maxApproval.ApprovalEstimate:F1}), {FormatChange(latestInfo.ApprovalEstimate, minApproval.ApprovalEstimate)} from low ({minApproval.ApprovalEstimate:F1})\n";
+                str += $"Disapproval {range.TotalDays} days ago: {oldestRangeInfo.DisapprovalEstimate:F1} ({FormatChange(latestInfo.DisapprovalEstimate, oldestRangeInfo.DisapprovalEstimate)})\nApproval {range.TotalDays} days ago: {oldestRangeInfo.ApprovalEstimate:F1} ({FormatChange(latestInfo.ApprovalEstimate, oldestRangeInfo.ApprovalEstimate)})\n";
+                str += $"Disapproval range for {range.TotalDays} days: {FormatChange(latestInfo.DisapprovalEstimate, maxDisapproval.DisapprovalEstimate)} from high ({maxDisapproval.DisapprovalEstimate:F1}), {FormatChange(latestInfo.DisapprovalEstimate, minDisapproval.DisapprovalEstimate)} from low ({minDisapproval.DisapprovalEstimate:F1})\n";
+                str += $"Approval range for {range.TotalDays} days: {FormatChange(latestInfo.ApprovalEstimate, maxApproval.ApprovalEstimate)} from high ({maxApproval.ApprovalEstimate:F1}), {FormatChange(latestInfo.ApprovalEstimate, minApproval.ApprovalEstimate)} from low ({minApproval.ApprovalEstimate:F1})\n";
             }
             return str;
         }

@@ -9,8 +9,7 @@ namespace botbot.Module
         {
             if (text.ToLower().StartsWith("botbot president") ||
                 text.ToLower().StartsWith("botbot president approval") ||
-                text.ToLower().StartsWith("botbot presidental approval") ||
-                text.ToLower().StartsWith("botbot :trump:"))
+                text.ToLower().StartsWith("botbot presidential approval"))
             {
                 string message = await BotBotController.presidentCommand.Handle(text, userId);
                 return new ModuleResponse()
