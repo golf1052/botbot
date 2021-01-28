@@ -5,7 +5,7 @@ namespace botbot.Module
 {
     public class VersionModule : IMessageModule
     {
-        private const string Version = "43.1.0";
+        private const string Version = "44.0.0";
 
         public Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
