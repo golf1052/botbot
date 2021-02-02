@@ -4,21 +4,24 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using golf1052.SlackAPI.Events;
+using golf1052.SlackAPI.Objects;
 
 namespace botbot.Module.SlackAttachments
 {
     public class HackerNewsModule : SlackAttachmentModule
     {
+        private List<SlackChannel> slackChannels;
         private HackerNewsApi hackerNewsApi;
 
-        public HackerNewsModule(Settings settings) : base(settings)
+        public HackerNewsModule(List<SlackChannel> slackChannels, Settings settings) : base(settings)
         {
+            this.slackChannels = slackChannels;
             hackerNewsApi = new HackerNewsApi();
         }
 
         public override async Task<ModuleResponse> Handle(SlackMessage message, Attachment attachment)
         {
-            if (message.Channel == settings.TechChannel)
+            if (message.Channel == slackChannels.FirstOrDefault(c => c.Name == settings.TechChannel)?.Id)
             {
                 string url = attachment.TitleLink;
                 if (string.IsNullOrEmpty(url))
