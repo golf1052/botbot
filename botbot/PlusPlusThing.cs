@@ -4,7 +4,7 @@ namespace botbot
 {
     public class PlusPlusThing
     {
-        public string Id { get; set; }
+        public string? Id { get; set; }
         public int Score { get; set; }
         public Dictionary<string, int> Reasons { get; set; }
 

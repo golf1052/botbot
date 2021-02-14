@@ -49,7 +49,7 @@ namespace botbot.Command
                 }
                 else
                 {
-                    Uri redirectUri = null;
+                    Uri redirectUri;
                     try
                     {
                         redirectUri = new Uri(HelperMethods.ParseSlackUrl(text));
@@ -119,7 +119,7 @@ namespace botbot.Command
                         string messageForUser = await GetNewReleasesForUser(newReleasesObject);
                         if (!string.IsNullOrWhiteSpace(messageForUser))
                         {
-                            sendMessageFunc.Invoke(messageForUser, userConversation.Id);
+                            _ = sendMessageFunc.Invoke(messageForUser, userConversation.Id);
                         }
                     }
                 }
@@ -128,7 +128,7 @@ namespace botbot.Command
 
         private async Task<string> GetNewReleasesForUser(NewReleasesObject newReleasesObject)
         {
-            if (newReleasesObject.AuthInfo.ExpiresAt <= DateTimeOffset.UtcNow)
+            if (newReleasesObject.AuthInfo!.ExpiresAt <= DateTimeOffset.UtcNow)
             {
                 SpotifyClient spotifyClient = new SpotifyClient(Secrets.SpotifyNewReleasesClientId, Secrets.SpotifyNewReleasesClientSecret, Secrets.SpotifyRedirectUrl);
                 await spotifyClient.RefreshAccessToken(newReleasesObject.AuthInfo.RefreshToken);
@@ -292,7 +292,7 @@ namespace botbot.Command
 
         private void SaveNewReleasesObject(NewReleasesObject newReleasesObject)
         {
-            newReleasesCollection.ReplaceOne(Builders<NewReleasesObject>.Filter.Eq<string>("_id", newReleasesObject.UserId),
+            newReleasesCollection.ReplaceOne(Builders<NewReleasesObject>.Filter.Eq("_id", newReleasesObject.UserId!),
                 newReleasesObject,
                 new UpdateOptions() { IsUpsert = true });
         }

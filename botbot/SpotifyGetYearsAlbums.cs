@@ -24,7 +24,7 @@ namespace botbot
         public async Task Receive(string text, string channel, string userId)
         {
             string[] splitText = text.Trim().Split(' ');
-            string year = null;
+            string year;
             if (splitText.Length == 3)
             {
                 year = splitText[2];
@@ -56,7 +56,7 @@ namespace botbot
                 }
                 else
                 {
-                    Uri redirectUri = null;
+                    Uri redirectUri;
                     try
                     {
                         redirectUri = new Uri(HelperMethods.ParseSlackUrl(text));

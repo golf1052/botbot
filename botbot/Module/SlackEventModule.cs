@@ -20,6 +20,6 @@ namespace botbot.Module
 
         public abstract Task Handle(string type, JObject e);
 
-        public abstract RecurringModule RegisterRecurring();
+        public abstract RecurringModule? RegisterRecurring();
     }
 }

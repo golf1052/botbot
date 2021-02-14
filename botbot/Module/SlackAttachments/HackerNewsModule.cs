@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using golf1052.SlackAPI.Events;
 using golf1052.SlackAPI.Objects;
@@ -28,7 +26,7 @@ namespace botbot.Module.SlackAttachments
                 {
                     return new ModuleResponse();
                 }
-                SearchItem hackerNewsItem = await hackerNewsApi.Search(url);
+                SearchItem? hackerNewsItem = await hackerNewsApi.Search(url);
                 if (hackerNewsItem == null)
                 {
                     return new ModuleResponse();

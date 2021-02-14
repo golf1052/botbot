@@ -7,7 +7,7 @@ namespace botbot.Command.NewReleases
 {
     public class SeenSpotifyAlbum
     {
-        public string Id { get; set; }
+        public string? Id { get; set; }
         public DateTimeOffset ReleaseDate { get; set; }
     }
 }

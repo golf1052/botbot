@@ -17,12 +17,12 @@ namespace botbot.Module
             typings = new Dictionary<string, Dictionary<string, DateTime>>();
         }
 
-        public override async Task Handle(string type, JObject e)
+        public override Task Handle(string type, JObject e)
         {
             if (type == "user_typing")
             {
-                string channel = (string)e["channel"];
-                string user = (string)e["user"];
+                string channel = (string)e["channel"]!;
+                string user = (string)e["user"]!;
                 if (!typings.ContainsKey(channel))
                 {
                     typings.Add(channel, new Dictionary<string, DateTime>());
@@ -36,6 +36,8 @@ namespace botbot.Module
                     typings[channel][user] = DateTime.UtcNow;
                 }
             }
+
+            return Task.CompletedTask;
         }
 
         public override RecurringModule RegisterRecurring()

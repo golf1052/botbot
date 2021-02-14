@@ -14,10 +14,11 @@ namespace botbot
         private const string BaseUrl = "https://api.soundcloud.com/";
         private const string botbotPlaylist = "https://api.soundcloud.com/playlists/300562390";
 
-        HttpClient client;
-        string accessToken;
-        string refreshToken;
-        DateTime tokenExpiration;
+        private readonly HttpClient client;
+
+        private string? accessToken;
+        private string refreshToken;
+        private DateTime tokenExpiration;
 
         public SoundcloudApi()
         {
@@ -58,9 +59,9 @@ namespace botbot
 
         private void UpdateAuth(JObject responseObject)
         {
-            tokenExpiration = DateTime.UtcNow + TimeSpan.FromSeconds((long)responseObject["expires_in"]);
-            accessToken = (string)responseObject["access_token"];
-            refreshToken = (string)responseObject["refresh_token"];
+            tokenExpiration = DateTime.UtcNow + TimeSpan.FromSeconds((long)responseObject["expires_in"]!);
+            accessToken = (string)responseObject["access_token"]!;
+            refreshToken = (string)responseObject["refresh_token"]!;
         }
 
         private async Task CheckAccess()
@@ -78,9 +79,9 @@ namespace botbot
             if (response.IsSuccessStatusCode)
             {
                 JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
-                if ((string)responseObject["kind"] == "track")
+                if ((string)responseObject["kind"]! == "track")
                 {
-                    return (long)responseObject["id"];
+                    return (long)responseObject["id"]!;
                 }
                 else
                 {
@@ -105,9 +106,9 @@ namespace botbot
             await CheckAccess();
             HttpResponseMessage playlistResponse = await client.GetAsync(FinishUrl(AuthUrl(botbotPlaylist)));
             JObject playlistObject = JObject.Parse(await playlistResponse.Content.ReadAsStringAsync());
-            foreach (JObject track in playlistObject["tracks"])
+            foreach (JObject track in playlistObject["tracks"]!)
             {
-                long id = (long)track["id"];
+                long id = (long)track["id"]!;
                 if (!ids.Contains(id))
                 {
                     ids.Add(id);
@@ -122,7 +123,7 @@ namespace botbot
             }
             JObject playlistO = new JObject();
             playlistO["playlist"] = new JObject();
-            playlistO["playlist"]["tracks"] = tracks;
+            playlistO["playlist"]!["tracks"] = tracks;
             StringContent content = new StringContent(playlistO.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
             string url = FinishUrl(AuthUrl(botbotPlaylist));
             HttpResponseMessage response = await client.PutAsync(url, content);
@@ -134,9 +135,9 @@ namespace botbot
             List<long> ids = new List<long>();
             HttpResponseMessage playlistResponse = await client.GetAsync(FinishUrl(AuthUrl(botbotPlaylist)));
             JObject playlistObject = JObject.Parse(await playlistResponse.Content.ReadAsStringAsync());
-            foreach (JObject track in playlistObject["tracks"])
+            foreach (JObject track in playlistObject["tracks"]!)
             {
-                long id = (long)track["id"];
+                long id = (long)track["id"]!;
                 if (!ids.Contains(id))
                 {
                     ids.Add(id);
@@ -152,7 +153,7 @@ namespace botbot
             }
             JObject playlistO = new JObject();
             playlistO["playlist"] = new JObject();
-            playlistO["playlist"]["tracks"] = tracks;
+            playlistO["playlist"]!["tracks"] = tracks;
             StringContent content = new StringContent(playlistO.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
             string url = FinishUrl(AuthUrl(botbotPlaylist));
             HttpResponseMessage response = await client.PutAsync(url, content);

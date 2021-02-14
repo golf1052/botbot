@@ -7,14 +7,14 @@ namespace botbot
 {
     public class PlusPlusLog
     {
-        public string Id { get; set; }
+        public string? Id { get; set; }
         public Dictionary<string, Dictionary<string, DateTime>> Log { get; set; }
-        public Dictionary<string, PlusPlusLastThing> Last { get; set; }
+        public Dictionary<string, PlusPlusLastThing?> Last { get; set; }
 
         public PlusPlusLog()
         {
             Log = new Dictionary<string, Dictionary<string, DateTime>>();
-            Last = new Dictionary<string, PlusPlusLastThing>();
+            Last = new Dictionary<string, PlusPlusLastThing?>();
         }
     }
 }

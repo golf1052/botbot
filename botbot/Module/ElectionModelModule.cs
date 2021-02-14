@@ -1,5 +1,4 @@
-﻿using Reverb.Models.WebPlayer;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -25,16 +24,20 @@ namespace botbot.Module
         private const string Democrats = "Democrats";
         private const string Republicans = "Republicans";
 
-        private HttpClient httpClient;
-        private static List<PresidentModelInfo> presidentModelInfo;
-        private static List<SenateModelInfo> senateModelInfo;
+        private readonly HttpClient httpClient;
+        private static readonly List<PresidentModelInfo> presidentModelInfo;
+        private static readonly List<SenateModelInfo> senateModelInfo;
         private DateTimeOffset lastRetrieved;
+
+        static ElectionModelModule()
+        {
+            presidentModelInfo = new List<PresidentModelInfo>();
+            senateModelInfo = new List<SenateModelInfo>();
+        }
 
         public ElectionModelModule()
         {
             httpClient = new HttpClient();
-            presidentModelInfo = new List<PresidentModelInfo>();
-            senateModelInfo = new List<SenateModelInfo>();
             lastRetrieved = DateTimeOffset.UnixEpoch;
         }
         
@@ -141,7 +144,7 @@ namespace botbot.Module
                 return new ModuleResponse();
             }
             DateTime presidentTwoWeeksAgo = latestPresidentInfo.ModelDate - TimeSpan.FromDays(14);
-            PresidentModelInfo twoWeeksAgoPresidentInfo = null;
+            PresidentModelInfo? twoWeeksAgoPresidentInfo = null;
             foreach (PresidentModelInfo info in presidentModelInfo)
             {
                 if (info.ModelDate == presidentTwoWeeksAgo)
@@ -152,7 +155,7 @@ namespace botbot.Module
             }
             if (twoWeeksAgoPresidentInfo == null)
             {
-                return null;
+                return new ModuleResponse();
             }
 
             bool hasThirdParty = !string.IsNullOrEmpty(latestPresidentInfo.CandidateThirdParty);
@@ -199,7 +202,7 @@ namespace botbot.Module
             str += $"{ElectoralCollegeWinChance}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.ECWinChanceIncumbent:F1} ({FormatChange(latestPresidentInfo.ECWinChanceIncumbent, twoWeeksAgoPresidentInfo.ECWinChanceIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.ECWinChanceChallenger:F1} ({FormatChange(latestPresidentInfo.ECWinChanceChallenger, twoWeeksAgoPresidentInfo.ECWinChanceChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.ECWinChanceThirdParty:F1} ({FormatChange(latestPresidentInfo.ECWinChanceThirdParty.Value, twoWeeksAgoPresidentInfo.ECWinChanceThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.ECWinChanceThirdParty:F1} ({FormatChange(latestPresidentInfo.ECWinChanceThirdParty!.Value, twoWeeksAgoPresidentInfo.ECWinChanceThirdParty!.Value)})\n";
             }
             else
             {
@@ -208,7 +211,7 @@ namespace botbot.Module
             str += $"{PopularVoteWinChance}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.PopularWinChanceIncumbent:F1} ({FormatChange(latestPresidentInfo.PopularWinChanceIncumbent, twoWeeksAgoPresidentInfo.PopularWinChanceIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.PopularWinChanceChallenger:F1} ({FormatChange(latestPresidentInfo.PopularWinChanceChallenger, twoWeeksAgoPresidentInfo.PopularWinChanceChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.PopularWinChanceThirdParty:F1} ({FormatChange(latestPresidentInfo.PopularWinChanceThirdParty.Value, twoWeeksAgoPresidentInfo.PopularWinChanceThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.PopularWinChanceThirdParty:F1} ({FormatChange(latestPresidentInfo.PopularWinChanceThirdParty!.Value, twoWeeksAgoPresidentInfo.PopularWinChanceThirdParty!.Value)})\n";
             }
             else
             {
@@ -217,7 +220,7 @@ namespace botbot.Module
             str += $"{ElectoralVotes}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.ElectoralVotesIncumbent} ({FormatChange(latestPresidentInfo.ElectoralVotesIncumbent, twoWeeksAgoPresidentInfo.ElectoralVotesIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.ElectoralVotesChallenger} ({FormatChange(latestPresidentInfo.ElectoralVotesChallenger, twoWeeksAgoPresidentInfo.ElectoralVotesChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.ElectoralVotesThirdParty} ({FormatChange(latestPresidentInfo.ElectoralVotesThirdParty.Value, twoWeeksAgoPresidentInfo.ElectoralVotesThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.ElectoralVotesThirdParty} ({FormatChange(latestPresidentInfo.ElectoralVotesThirdParty!.Value, twoWeeksAgoPresidentInfo.ElectoralVotesThirdParty!.Value)})\n";
             }
             else
             {
@@ -226,7 +229,7 @@ namespace botbot.Module
             str += $"{PopularVoteShare}: {twoWeeksAgoPresidentInfo.CandidateIncumbent} {twoWeeksAgoPresidentInfo.PopularVoteShareIncumbent:F1} ({FormatChange(latestPresidentInfo.PopularVoteShareIncumbent, twoWeeksAgoPresidentInfo.PopularVoteShareIncumbent)}) vs {twoWeeksAgoPresidentInfo.CandidateChallenger} {twoWeeksAgoPresidentInfo.PopularVoteShareChallenger:F1} ({FormatChange(latestPresidentInfo.PopularVoteShareChallenger, twoWeeksAgoPresidentInfo.PopularVoteShareChallenger)})";
             if (hasThirdParty)
             {
-                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.PopularVoteShareThirdParty:F1} ({FormatChange(latestPresidentInfo.PopularVoteShareThirdParty.Value, twoWeeksAgoPresidentInfo.PopularVoteShareThirdParty.Value)})\n";
+                str += $" vs {twoWeeksAgoPresidentInfo.CandidateThirdParty} {twoWeeksAgoPresidentInfo.PopularVoteShareThirdParty:F1} ({FormatChange(latestPresidentInfo.PopularVoteShareThirdParty!.Value, twoWeeksAgoPresidentInfo.PopularVoteShareThirdParty!.Value)})\n";
             }
             else
             {
@@ -244,7 +247,7 @@ namespace botbot.Module
                 };
             }
             DateTime senateTwoWeeksAgo = latestSenateInfo.ForecastDate - TimeSpan.FromDays(14);
-            SenateModelInfo twoWeeksAgoSenateInfo = null;
+            SenateModelInfo? twoWeeksAgoSenateInfo = null;
             foreach (SenateModelInfo info in senateModelInfo)
             {
                 if (info.ForecastDate == senateTwoWeeksAgo)
@@ -302,7 +305,7 @@ namespace botbot.Module
             public DateTime ModelDate { get; private set; }
             public string CandidateIncumbent { get; private set; }
             public string CandidateChallenger { get; private set; }
-            public string CandidateThirdParty { get; private set; }
+            public string? CandidateThirdParty { get; private set; }
             public double ECWinChanceIncumbent { get; private set; }
             public double ECWinChanceChallenger { get; private set; }
             public double? ECWinChanceThirdParty { get; private set; }

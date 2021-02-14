@@ -1,12 +1,12 @@
-﻿using botbot.Command;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using botbot.Command;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace botbot.Controllers
 {
@@ -19,7 +19,7 @@ namespace botbot.Controllers
         public static HttpClient httpClient;
         public static StockCommand stockCommand;
         public static PresidentApprovalCommand presidentCommand;
-        public static string HubotWorkspace;
+        public static string? HubotWorkspace;
 
         static BotBotController()
         {
@@ -93,24 +93,24 @@ namespace botbot.Controllers
             if (requestBody.Command == "/botbot")
             {
                 JObject responseObject = ProcessSlashCommand(requestBody);
-                httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+                _ = httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
             }
             else if (requestBody.Command == "/stock")
             {
                 JObject responseObject = new JObject();
-                responseObject["text"] = await stockCommand.Handle(requestBody.Text, requestBody.UserId);
-                httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+                responseObject["text"] = await stockCommand.Handle(requestBody.Text!, requestBody.UserId!);
+                _ = httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
             }
             else if (requestBody.Command == "/president")
             {
                 JObject responseObject = new JObject();
-                responseObject["text"] = await presidentCommand.Handle(requestBody.Text, requestBody.UserId);
-                httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+                responseObject["text"] = await presidentCommand.Handle(requestBody.Text!, requestBody.UserId!);
+                _ = httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
             }
         }
 
         [HttpPost("/hubot")]
-        public async void HubotResponse([FromBody]HubotResponseObject responseObject)
+        public void HubotResponse([FromBody]HubotResponseObject responseObject)
         {
             if (responseObject.Type == "message")
             {
@@ -118,11 +118,11 @@ namespace botbot.Controllers
                 {
                     if (!string.IsNullOrEmpty(responseObject.ThreadTimestamp))
                     {
-                        clients[HubotWorkspace].SendSlackMessage(responseObject.Text, responseObject.Channel, responseObject.ThreadTimestamp);
+                        _ = clients[HubotWorkspace].SendSlackMessage(responseObject.Text!, responseObject.Channel!, responseObject.ThreadTimestamp);
                     }
                     else
                     {
-                        clients[HubotWorkspace].SendSlackMessage(responseObject.Text, responseObject.Channel);
+                        _ = clients[HubotWorkspace].SendSlackMessage(responseObject.Text!, responseObject.Channel!);
                     }
                 }
             }
@@ -130,7 +130,7 @@ namespace botbot.Controllers
 
         private JObject ProcessSlashCommand(RequestBody requestBody)
         {
-            string[] splitText = requestBody.Text.Split(' ');
+            string[] splitText = requestBody.Text!.Split(' ');
             string text = string.Empty;
             if (string.IsNullOrEmpty(requestBody.Text))
             {

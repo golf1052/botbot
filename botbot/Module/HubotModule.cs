@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,7 +18,7 @@ namespace botbot.Module
             baseUrl = $"http://localhost:{Secrets.HubotPortNumber}";
         }
 
-        public override async Task Handle(string type, JObject e)
+        public override Task Handle(string type, JObject e)
         {
             if (type == "hello")
             {
@@ -32,8 +30,10 @@ namespace botbot.Module
             {
                 JObject requestObject = new JObject();
                 requestObject["slack"] = e;
-                SendHubot("slack", requestObject);
+                _ = SendHubot("slack", requestObject);
             }
+
+            return Task.CompletedTask;
         }
 
         public async Task Init(string token)
@@ -60,7 +60,7 @@ namespace botbot.Module
             }
         }
 
-        public override RecurringModule RegisterRecurring()
+        public override RecurringModule? RegisterRecurring()
         {
             return null;
         }

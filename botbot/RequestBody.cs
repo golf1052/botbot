@@ -4,16 +4,16 @@ namespace botbot
 {
     public class RequestBody
     {
-        public string Token { get; private set; }
-        public string TeamId { get; private set; }
-        public string TeamDomain { get; private set; }
-        public string ChannelId { get; private set; }
-        public string ChannelName { get; private set; }
-        public string UserId { get; private set; }
-        public string UserName { get; private set; }
-        public string Command { get; private set; }
-        public string Text { get; private set; }
-        public string ResponseUrl { get; private set; }
+        public string? Token { get; private set; }
+        public string? TeamId { get; private set; }
+        public string? TeamDomain { get; private set; }
+        public string? ChannelId { get; private set; }
+        public string? ChannelName { get; private set; }
+        public string? UserId { get; private set; }
+        public string? UserName { get; private set; }
+        public string? Command { get; private set; }
+        public string? Text { get; private set; }
+        public string? ResponseUrl { get; private set; }
 
         public RequestBody(IFormCollection formData)
         {

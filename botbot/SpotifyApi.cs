@@ -18,9 +18,9 @@ namespace botbot
         private const string PlaylistId = "3IksVfwxIwjC7LDQMy3Yd2";
         public const string PlaylistUrl = "https://open.spotify.com/user/golf1052/playlist/3IksVfwxIwjC7LDQMy3Yd2";
 
-        private HttpClient client;
-        private string accessToken;
-        private string refreshToken;
+        private readonly HttpClient client;
+        private string? accessToken;
+        private string? refreshToken;
         private DateTime tokenExpireTime;
 
         public SpotifyApi()
@@ -57,7 +57,7 @@ namespace botbot
             Dictionary<string, string> pairs = new Dictionary<string, string>()
             {
                 { "grant_type", "refresh_token" },
-                { "refresh_token", refreshToken },
+                { "refresh_token", refreshToken! },
                 { "client_id", Secrets.SpotifyClientId },
                 { "client_secret", Secrets.SpotifyClientSecret }
             };
@@ -69,9 +69,9 @@ namespace botbot
 
         private void UpdateAuth(JObject responseObject)
         {
-            tokenExpireTime = DateTime.UtcNow + TimeSpan.FromSeconds((long)responseObject["expires_in"]);
-            accessToken = (string)responseObject["access_token"];
-            refreshToken = (string)responseObject["refresh_token"];
+            tokenExpireTime = DateTime.UtcNow + TimeSpan.FromSeconds((long)responseObject["expires_in"]!);
+            accessToken = (string)responseObject["access_token"]!;
+            refreshToken = (string)responseObject["refresh_token"]!;
             client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
         }
 
@@ -83,7 +83,7 @@ namespace botbot
             }
         }
 
-        public async Task<SpotifyTrack> Search(string query)
+        public async Task<SpotifyTrack?> Search(string query)
         {
             if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
             {
@@ -93,17 +93,17 @@ namespace botbot
             string url = $"{BaseUrl}search?q={query}&type=track&market=US";
             HttpResponseMessage response = await client.GetAsync(url);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
-            JArray items = (JArray)responseObject["tracks"]["items"];
+            JArray items = (JArray)responseObject["tracks"]!["items"]!;
             if (items.Count > 0)
             {
-                string uri = (string)items[0]["uri"];
-                string name = (string)items[0]["name"];
+                string uri = (string)items[0]["uri"]!;
+                string name = (string)items[0]["name"]!;
                 string artist = string.Empty;
-                if (((JArray)items[0]["album"]["artists"]).Count > 0)
+                if (((JArray)items[0]["album"]!["artists"]!).Count > 0)
                 {
-                    artist = (string)items[0]["album"]["artists"][0]["name"];
+                    artist = (string)items[0]["album"]!["artists"]![0]!["name"]!;
                 }
-                string album = (string)items[0]["album"]["name"];
+                string album = (string)items[0]["album"]!["name"]!;
                 return new SpotifyTrack(uri, name, artist, album);
             }
             else

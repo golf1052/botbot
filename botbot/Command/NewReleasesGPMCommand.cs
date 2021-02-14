@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using botbot.Command.NewReleases.GPM;
 using golf1052.SlackAPI.Objects;
-using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace botbot.Command
@@ -82,7 +80,7 @@ namespace botbot.Command
                         string messageForUser = await GetNewReleasesForUser(newReleasesObject);
                         if (!string.IsNullOrWhiteSpace(messageForUser))
                         {
-                            sendMessageFunc.Invoke(messageForUser, userConversation.Id);
+                            _ = sendMessageFunc.Invoke(messageForUser, userConversation.Id);
                         }
                     }
                 }
@@ -95,9 +93,9 @@ namespace botbot.Command
             List<GPMAlbum> newReleases;
             try
             {
-                newReleases = await gpmClient.GetAlbums(newReleasesObject.AuthInfo);
+                newReleases = await gpmClient.GetAlbums(newReleasesObject.AuthInfo!);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // TODO: Log exceptions
                 throw;
@@ -124,7 +122,7 @@ namespace botbot.Command
                 string toAdd;
                 if (string.IsNullOrWhiteSpace(album.Artist))
                 {
-                    toAdd = album.Name;
+                    toAdd = album.Name!;
                 }
                 else
                 {
@@ -165,7 +163,7 @@ namespace botbot.Command
 
         private void SaveNewReleasesObject(NewReleasesGPMObject newReleasesObject)
         {
-            newReleasesCollection.ReplaceOne(Builders<NewReleasesGPMObject>.Filter.Eq<string>("_id", newReleasesObject.UserId),
+            newReleasesCollection.ReplaceOne(Builders<NewReleasesGPMObject>.Filter.Eq("_id", newReleasesObject.UserId!),
                 newReleasesObject,
                 new UpdateOptions() { IsUpsert = true });
         }

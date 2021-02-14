@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
 namespace botbot
@@ -10,5 +7,11 @@ namespace botbot
     {
         public string Type { get; set; }
         public JObject Event { get; set; }
+
+        public SlackRTMEventArgs(string type, JObject _event)
+        {
+            Type = type;
+            Event = _event;
+        }
     }
 }

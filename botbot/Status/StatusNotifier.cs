@@ -1,9 +1,7 @@
-﻿using golf1052.SlackAPI.Objects;
-using MongoDB.Driver;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using golf1052.SlackAPI.Objects;
+using MongoDB.Driver;
 
 namespace botbot.Status
 {
@@ -100,7 +98,7 @@ namespace botbot.Status
 
         private void SaveUserStatus(UserStatus status)
         {
-            statusesCollection.ReplaceOne(Builders<UserStatus>.Filter.Eq<string>("_id", status.UserId),
+            statusesCollection.ReplaceOne(Builders<UserStatus>.Filter.Eq("_id", status.UserId!),
                 status,
                 new UpdateOptions { IsUpsert = true });
         }
@@ -119,7 +117,7 @@ namespace botbot.Status
 
         private void SaveSubscription(StatusSubscription subscription)
         {
-            statusSubscriptionsCollection.ReplaceOne(Builders<StatusSubscription>.Filter.Eq<string>("_id", subscription.UserId),
+            statusSubscriptionsCollection.ReplaceOne(Builders<StatusSubscription>.Filter.Eq("_id", subscription.UserId!),
                 subscription,
                 new UpdateOptions { IsUpsert = true });
         }

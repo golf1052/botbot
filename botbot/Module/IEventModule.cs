@@ -10,6 +10,6 @@ namespace botbot.Module
     {
         Task Handle(string type, JObject e);
 
-        RecurringModule RegisterRecurring();
+        RecurringModule? RegisterRecurring();
     }
 }

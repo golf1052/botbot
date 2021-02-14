@@ -20,7 +20,7 @@ namespace botbot
         {
             this.httpClient = httpClient;
         }
-        public async Task<SearchItem> Search(string url)
+        public async Task<SearchItem?> Search(string url)
         {
             HttpResponseMessage response = await httpClient.GetAsync($"http://hn.algolia.com/api/v1/search?query={url}&restrictSearchableAttributes=url");
             if (response.StatusCode != System.Net.HttpStatusCode.OK)
@@ -28,7 +28,7 @@ namespace botbot
                 return null;
             }
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
-            JArray hits = (JArray)responseObject["hits"];
+            JArray? hits = (JArray?)responseObject["hits"];
             if (hits == null || hits.Count == 0)
             {
                 return null;
@@ -64,7 +64,7 @@ namespace botbot
     public class SearchItem
     {
         [JsonProperty("title")]
-        public string Title { get; private set; }
+        public string? Title { get; private set; }
 
         [JsonProperty("points")]
         public int? Points { get; private set; }
@@ -79,7 +79,7 @@ namespace botbot
         public DateTime CreatedAt { get; private set; }
 
         [JsonProperty("tags")]
-        public List<string> Tags { get; private set; }
+        public List<string>? Tags { get; private set; }
 
         public bool OnFrontPage
         {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -26,7 +25,7 @@ namespace botbot.Command.NewReleases.GPM
             JObject requestObject = new JObject();
             requestObject["api"] = "login";
             JObject responseObject = await SendRequest(requestObject);
-            return (string)responseObject["url"];
+            return (string)responseObject["url"]!;
         }
 
         public async Task<string> GetCredentials(string code)
@@ -34,7 +33,7 @@ namespace botbot.Command.NewReleases.GPM
             JObject requestObject = new JObject();
             requestObject["auth"] = code;
             JObject responseObject = await SendRequest(requestObject);
-            return (string)responseObject["creds"];
+            return (string)responseObject["creds"]!;
         }
 
         public async Task<List<GPMAlbum>> GetAlbums(string credentials)
@@ -44,7 +43,7 @@ namespace botbot.Command.NewReleases.GPM
             requestObject["creds"] = credentials;
             JObject responseObject = await SendRequest(requestObject);
             List<GPMAlbum> albums = new List<GPMAlbum>();
-            foreach (JObject item in (JArray)responseObject["albums"])
+            foreach (JObject item in (JArray)responseObject["albums"]!)
             {
                 albums.Add(JsonConvert.DeserializeObject<GPMAlbum>(item.ToString()));
             }

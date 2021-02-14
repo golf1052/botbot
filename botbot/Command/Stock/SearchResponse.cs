@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace botbot.Command.Stock
@@ -9,6 +6,6 @@ namespace botbot.Command.Stock
     public class SearchResponse
     {
         [JsonProperty]
-        public List<BestMatch> BestMatches { get; private set; }
+        public List<BestMatch> BestMatches { get; private set; } = new List<BestMatch>();
     }
 }

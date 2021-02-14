@@ -95,8 +95,8 @@ namespace botbot
         private List<IMessageModule> messageModules;
         private List<IEventModule> eventModules;
         private List<ISlackAttachmentModule> attachmentModules;
-        HubotModule hubotModule;
-        StatusNotifier statusNotifier;
+        private HubotModule? hubotModule;
+        private StatusNotifier statusNotifier;
 
         HttpClient httpClient;
 
@@ -108,10 +108,11 @@ namespace botbot
             this.logger = logger;
             httpClient = new HttpClient();
             webSocket = new ClientWebSocket();
-            MessageReceived += Client_MessageReceived;
-            EventReceived += Client_EventReceived;
+            MessageReceived += Client_MessageReceived!;
+            EventReceived += Client_EventReceived!;
             slackCore = new SlackCore(settings.Token);
             slackUsers = new List<SlackUser>();
+            slackChannels = new List<SlackChannel>();
             typings = new Dictionary<string, Dictionary<string, DateTime>>();
             reactionMisses = new Dictionary<string, int>();
             soundcloud = new SoundcloudApi();
@@ -123,7 +124,7 @@ namespace botbot
             messageModules = new List<IMessageModule>();
             eventModules = new List<IEventModule>();
             attachmentModules = new List<ISlackAttachmentModule>();
-            statusNotifier = new StatusNotifier(settings.Id);
+            statusNotifier = new StatusNotifier(settings.Id!);
             jsonSerializerSettings = new JsonSerializerSettings()
             {
                 ContractResolver = new DefaultContractResolver()
@@ -166,7 +167,7 @@ namespace botbot
             if (settings.HubotEnabled)
             {
                 hubotModule = new HubotModule(slackCore, SendMessage);
-                await hubotModule.Init(settings.Token);
+                await hubotModule.Init(settings.Token!);
                 eventModules.Add(hubotModule);
             }
 
@@ -176,7 +177,7 @@ namespace botbot
 
             foreach (var eventModule in eventModules)
             {
-                RecurringModule recurring = eventModule.RegisterRecurring();
+                RecurringModule? recurring = eventModule.RegisterRecurring();
                 if (recurring != null)
                 {
                     Task t = Task.Run(async () =>
@@ -200,10 +201,10 @@ namespace botbot
             //await soundcloud.Auth();
             if (!string.IsNullOrEmpty(settings.TestingChannel))
             {
-                Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
+                _ = Task.Run(() => SendTypings(GetChannelIdByName(settings.TestingChannel)));
             }
             //await SendSlackMessage(spotify.GetAuthUrl(), golf1052Channel);
-            Task.Run(() => CanAccessMongo());
+            _ = Task.Run(() => CanAccessMongo());
             // Task.Run(() => CheckNewReleases());
             // Task.Run(() => CheckNewReleasesGPM());
             string botbotId = GetUserIdByName("botbot");
@@ -213,7 +214,7 @@ namespace botbot
                 {
                     await Receive();
                 }
-                catch (WebSocketException ex)
+                catch (WebSocketException)
                 {
                     if (webSocket.State == WebSocketState.Aborted)
                     {
@@ -262,7 +263,10 @@ namespace botbot
             }
             catch (TimeoutException)
             {
-                await SendSlackMessage("I can't access mongo. Please.", GetChannelIdByName(settings.TestingChannel));
+                if (settings.TestingChannel != null)
+                {
+                    await SendSlackMessage("I can't access mongo. Please.", GetChannelIdByName(settings.TestingChannel));
+                }
             }
             await Task.Delay(TimeSpan.FromMinutes(30));
         }
@@ -280,11 +284,11 @@ namespace botbot
                     {
                         if (o["attachments"] != null)
                         {
-                            foreach (JObject attachment in o["attachments"])
+                            foreach (JObject attachment in o["attachments"]!)
                             {
                                 if (attachment["from_url"] != null)
                                 {
-                                    string link = (string)attachment["from_url"];
+                                    string link = (string)attachment["from_url"]!;
                                     if (link.Contains("https") && link.Contains("soundcloud"))
                                     {
                                         try
@@ -362,7 +366,7 @@ namespace botbot
                         logger.LogInformation(o.ToString());
                         if (o["type"] != null)
                         {
-                            string messageType = (string)o["type"];
+                            string messageType = (string)o["type"]!;
                             if (messageType == "message")
                             {
                                 if (hubotModule != null)
@@ -370,8 +374,7 @@ namespace botbot
                                     _ = hubotModule.Handle(messageType, o);
                                 }
                                 // why is this an event? events are synchronous so this could just be a function call
-                                SlackMessageEventArgs newMessage = new SlackMessageEventArgs();
-                                newMessage.Message = o;
+                                SlackMessageEventArgs newMessage = new SlackMessageEventArgs(o);
                                 MessageReceived(this, newMessage);
                             }
                             else if (messageType == "user_change")
@@ -383,9 +386,7 @@ namespace botbot
                             }
                             else
                             {
-                                SlackRTMEventArgs rtmEvent = new SlackRTMEventArgs();
-                                rtmEvent.Type = messageType;
-                                rtmEvent.Event = o;
+                                SlackRTMEventArgs rtmEvent = new SlackRTMEventArgs(messageType, o);
                                 EventReceived(this, rtmEvent);
                             }
                         }
@@ -447,7 +448,7 @@ namespace botbot
                     }
                     else if (task.IsFaulted)
                     {
-                        logger.LogWarning($"task failed {task.Exception.Message}");
+                        logger.LogWarning($"task failed {task.Exception!.Message}");
                         eventModuleTasks.RemoveAt(i);
                         i--;
                         continue;
@@ -462,7 +463,7 @@ namespace botbot
 
         private async void Client_MessageReceived(object sender, SlackMessageEventArgs e)
         {
-            SlackMessage slackMessage = JsonConvert.DeserializeObject<SlackMessage>(e.Message.ToString(), jsonSerializerSettings);
+            SlackMessage slackMessage = JsonConvert.DeserializeObject<SlackMessage>(e.Message.ToString(), jsonSerializerSettings)!;
             List<Task<ModuleResponse>> moduleTasks = new List<Task<ModuleResponse>>();
             if (!string.IsNullOrEmpty(slackMessage.Text))
             {
@@ -619,7 +620,7 @@ namespace botbot
                     else if (task.IsFaulted)
                     {
                         // do something
-                        logger.LogWarning($"task failed {task.Exception.Message}");
+                        logger.LogWarning($"task failed {task.Exception!.Message}");
                         moduleTasks.RemoveAt(i);
                         i--;
                         continue;
@@ -634,24 +635,25 @@ namespace botbot
 
         async Task ProcessProfileChange(JObject responseObject)
         {
-            var userId = (string)responseObject["user"]["id"];
-            string statusEmoji = (string)responseObject["user"]["profile"]["status_emoji"];
-            var status = $"{statusEmoji} {responseObject["user"]["profile"]["status_text"]}";
+            var userId = (string)responseObject["user"]!["id"]!;
+            string statusEmoji = (string)responseObject["user"]!["profile"]!["status_emoji"]!;
+            var status = $"{statusEmoji} {responseObject["user"]!["profile"]!["status_text"]}";
             // filter out Slack automatic "in a call statuses"
-            if (statusNotifier.HasChanged(userId, status) && !string.IsNullOrWhiteSpace(status) && statusEmoji != "📞" && statusEmoji != ":slack_call:")
+            if (settings.StatusChannel != null && statusNotifier.HasChanged(userId, status) &&
+                !string.IsNullOrWhiteSpace(status) && statusEmoji != "📞" && statusEmoji != ":slack_call:")
             {
-                await SendSlackMessage($"{responseObject["user"]["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
+                await SendSlackMessage($"{responseObject["user"]!["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
             }
             statusNotifier.SaveStatus(userId, status);
         }
 
-        private string FindDmChannel(string userId, JArray imList)
+        private string? FindDmChannel(string userId, JArray imList)
         {
             foreach (JObject im in imList)
             {
-                if ((string)im["user"] == userId)
+                if ((string)im["user"]! == userId)
                 {
-                    return (string)im["id"];
+                    return (string)im["id"]!;
                 }
             }
             return null;
@@ -659,21 +661,21 @@ namespace botbot
 
         async Task ProcessRadioAttachment(SlackMessageEventArgs e)
         {
-            string text = (string)e.Message["text"];
-            string channel = (string)e.Message["channel"];
-            JObject newMessage = (JObject)e.Message["message"];
-            JArray attachments = (JArray)newMessage["attachments"];
+            string text = (string)e.Message["text"]!;
+            string channel = (string)e.Message["channel"]!;
+            JObject newMessage = (JObject)e.Message["message"]!;
+            JArray attachments = (JArray)newMessage["attachments"]!;
 
             foreach (JObject attachment in attachments)
             {
-                string link = (string)attachment["from_url"];
+                string link = (string)attachment["from_url"]!;
                 if (link.Contains("https") && link.Contains("soundcloud"))
                 {
                     try
                     {
                         long id = await soundcloud.ResolveSoundcloud(link);
                         await soundcloud.AddSongToPlaylist(id);
-                        await SendSlackMessage($"Added {(string)attachment["title"]} to Soundcloud playlist", channel);
+                        await SendSlackMessage($"Added {(string)attachment["title"]!} to Soundcloud playlist", channel);
                     }
                     catch (Exception)
                     {
@@ -714,15 +716,15 @@ namespace botbot
             HttpResponseMessage response = await httpClient.GetAsync(url);
             JObject responseObject = JObject.Parse(await response.Content.ReadAsStringAsync());
             List<long> ids = new List<long>();
-            foreach (JObject o in responseObject["messages"])
+            foreach (JObject o in responseObject["messages"]!)
             {
                 if (o["attachments"] != null)
                 {
-                    foreach (JObject attachment in o["attachments"])
+                    foreach (JObject attachment in o["attachments"]!)
                     {
                         if (attachment["from_url"] != null)
                         {
-                            string link = (string)attachment["from_url"];
+                            string link = (string)attachment["from_url"]!;
                             if (link.Contains("https") && link.Contains("soundcloud"))
                             {
                                 try
@@ -781,7 +783,7 @@ namespace botbot
             await SendSlackMessage(message, channel, null);
         }
 
-        public async Task SendSlackMessage(string message, string channel, string threadTimestamp)
+        public async Task SendSlackMessage(string message, string channel, string? threadTimestamp)
         {
             JObject o = new JObject();
             o["id"] = 1;
@@ -818,7 +820,7 @@ namespace botbot
 
         private string GetChannelIdByName(string name)
         {
-            return slackChannels.FirstOrDefault(c => c.Name == name)?.Id;
+            return slackChannels.FirstOrDefault(c => c.Name == name)?.Id!;
         }
 
         private string GetUserIdByName(string name)

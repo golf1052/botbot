@@ -1,21 +1,20 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Buffers;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Flurl;
 using golf1052.DiscordAPI;
+using golf1052.DiscordAPI.Objects.Channel;
+using golf1052.DiscordAPI.Objects.Channel.Requests;
+using golf1052.DiscordAPI.Objects.Gateway;
+using golf1052.DiscordAPI.Objects.Guild;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using golf1052.DiscordAPI.Objects.Gateway;
 using Newtonsoft.Json.Serialization;
-using golf1052.DiscordAPI.Objects.Guild;
-using golf1052.DiscordAPI.Objects.Channel.Requests;
-using golf1052.DiscordAPI.Objects.Channel;
 
 namespace botbot
 {
@@ -85,7 +84,7 @@ namespace botbot
                         response = await webSocket.ReceiveAsync(memory, CancellationToken.None);
                         pipe.Writer.Advance(response.Count);
                     }
-                    catch (WebSocketException ex)
+                    catch (WebSocketException)
                     {
                         throw;
                     }
@@ -115,20 +114,20 @@ namespace botbot
                         buffer = buffer.Slice(buffer.End);
                         if (o["op"] != null)
                         {
-                            if (o["s"] != null && o["s"].Type != JTokenType.Null)
+                            if (o["s"] != null && o["s"]!.Type != JTokenType.Null)
                             {
-                                lastSequenceNumber = (int)o["s"];
+                                lastSequenceNumber = (int)o["s"]!;
                             }
-                            int opcode = (int)o["op"];
+                            int opcode = (int)o["op"]!;
                             
                             if (opcode == 0)
                             {
-                                if (o["t"] != null && o["t"].Type != JTokenType.Null)
+                                if (o["t"] != null && o["t"]!.Type != JTokenType.Null)
                                 {
-                                    string type = (string)o["t"];
+                                    string type = (string)o["t"]!;
                                     if (type == "GUILD_CREATE")
                                     {
-                                        GatewayPayload<DiscordGuild> guildCreate = JsonConvert.DeserializeObject<GatewayPayload<DiscordGuild>>(str, jsonSerializerSettings);
+                                        GatewayPayload<DiscordGuild> guildCreate = JsonConvert.DeserializeObject<GatewayPayload<DiscordGuild>>(str, jsonSerializerSettings)!;
                                         DiscordChannel channel = guildCreate.Data.Channels.FirstOrDefault(c => c.Name == "test");
                                         if (channel != null)
                                         {
@@ -139,7 +138,7 @@ namespace botbot
                             }
                             if (opcode == 10)
                             {
-                                GatewayPayload<Hello> hello = JsonConvert.DeserializeObject<GatewayPayload<Hello>>(str, jsonSerializerSettings);
+                                GatewayPayload<Hello> hello = JsonConvert.DeserializeObject<GatewayPayload<Hello>>(str, jsonSerializerSettings)!;
                                 _ = SendHeartbeats(hello.Data.HeartbeatInterval);
                             }
                             else if (opcode == 11)

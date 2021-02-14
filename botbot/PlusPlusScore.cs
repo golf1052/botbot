@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Bson;
 
@@ -99,7 +98,7 @@ namespace botbot
             }
             else
             {
-                Client.ThingCollection.DeleteOne(Builders<PlusPlusThing>.Filter.Eq<string>("_id", plusPlusThing.Id));
+                Client.ThingCollection.DeleteOne(Builders<PlusPlusThing>.Filter.Eq("_id", plusPlusThing.Id!));
             }
         }
 
@@ -113,7 +112,7 @@ namespace botbot
             return GetThing(thing).Reasons;
         }
 
-        public static PlusPlusLastThing Last(string room)
+        public static PlusPlusLastThing? Last(string room)
         {
             PlusPlusLog log = GetLog();
             if (log.Last.ContainsKey(room))
@@ -135,7 +134,7 @@ namespace botbot
                              select thing).ToList();
             for (int i = 0; i < Math.Min(amount, topThings.Count); i++)
             {
-                tops.Add(new KeyValuePair<string, int>(topThings[i].Id, topThings[i].Score));
+                tops.Add(new KeyValuePair<string, int>(topThings[i].Id!, topThings[i].Score));
             }
             return tops;
         }
@@ -149,14 +148,14 @@ namespace botbot
                              select thing).ToList();
             for (int i = 0; i < Math.Min(amount, topThings.Count); i++)
             {
-                tops.Add(new KeyValuePair<string, int>(topThings[i].Id, topThings[i].Score));
+                tops.Add(new KeyValuePair<string, int>(topThings[i].Id!, topThings[i].Score));
             }
             return tops;
         }
 
         private static void SaveThing(PlusPlusThing thing)
         {
-            Client.ThingCollection.ReplaceOne(Builders<PlusPlusThing>.Filter.Eq<string>("_id", thing.Id),
+            Client.ThingCollection.ReplaceOne(Builders<PlusPlusThing>.Filter.Eq("_id", thing.Id!),
                 thing,
                 new UpdateOptions { IsUpsert = true });
         }

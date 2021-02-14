@@ -11,7 +11,7 @@ namespace botbot.Module
 {
     public class ReactionsModule : SlackMessageModule
     {
-        public ReactionsModule(SlackCore slackCore, Func<string, string, string, Task> SendSlackMessage) : base(slackCore, SendSlackMessage)
+        public ReactionsModule(SlackCore slackCore, Func<string, string, string?, Task> SendSlackMessage) : base(slackCore, SendSlackMessage)
         {
         }
 
@@ -42,7 +42,7 @@ namespace botbot.Module
             {
                 if (reaction.Type == SlackEvent.SlackEventType.Message)
                 {
-                    SlackMessage message = reaction as SlackMessage;
+                    SlackMessage message = (reaction as SlackMessage)!;
                     foreach (Reaction r in message.Reactions)
                     {
                         if (!topReactions.ContainsKey(r.Name))

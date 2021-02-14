@@ -11,14 +11,18 @@ namespace botbot.Command
     {
         private const string ApprovalCSV = "https://projects.fivethirtyeight.com/biden-approval-data/approval_topline.csv";
         private const string ExpectedHeader = "president,subgroup,modeldate,approve_estimate,approve_hi,approve_lo,disapprove_estimate,disapprove_hi,disapprove_lo,timestamp";
-        private HttpClient httpClient;
-        private static List<ApprovalInfo> approvalInfo;
+        private readonly HttpClient httpClient;
+        private static readonly List<ApprovalInfo> approvalInfo;
         private DateTimeOffset lastRetrieved;
+
+        static PresidentApprovalCommand()
+        {
+            approvalInfo = new List<ApprovalInfo>();
+        }
 
         public PresidentApprovalCommand()
         {
             httpClient = new HttpClient();
-            approvalInfo = new List<ApprovalInfo>();
             lastRetrieved = DateTimeOffset.UnixEpoch;
         }
 
