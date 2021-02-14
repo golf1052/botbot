@@ -7,14 +7,8 @@
     <AssemblyName>botbot</AssemblyName>
     <OutputType>Exe</OutputType>
     <PackageId>botbot</PackageId>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <LangVersion>7.2</LangVersion>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <LangVersion>7.2</LangVersion>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,6 +33,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="MongoDb.Driver" Version="2.9.1" />
     <PackageReference Include="ThreeFourteen.AlphaVantage" Version="1.0.3" />
+    <PackageReference Include="VSLee.IEXSharp" Version="2.6.0" />
   </ItemGroup>
 
 </Project>

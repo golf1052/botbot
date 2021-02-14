@@ -1,13 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using ThreeFourteen.AlphaVantage;
-using Flurl;
-using Newtonsoft.Json;
 using botbot.Command.Stock;
-using ThreeFourteen.AlphaVantage.Model;
+using Flurl;
+using IEXSharp;
+using IEXSharp.Model.Shared.Response;
+using Newtonsoft.Json;
+using ThreeFourteen.AlphaVantage;
 
 namespace botbot.Command
 {
@@ -15,81 +15,140 @@ namespace botbot.Command
     {
         private const string BaseUrl = "https://www.alphavantage.co/query";
 
-        private AlphaVantage client;
-        private HttpClient httpClient;
+        private readonly AlphaVantage alphaVantageClient;
+        private readonly IEXCloudClient iexClient;
+        private readonly HttpClient httpClient;
 
         public StockCommand()
         {
-            client = new AlphaVantage(Secrets.AlphaVantageApiKey);
+            string publishableToken;
+            string secretToken;
+            bool useSandbox = false;
+
+            if (!useSandbox)
+            {
+                publishableToken = Secrets.IEXPublishableToken;
+                secretToken = Secrets.IEXSecretToken;
+            }
+            else
+            {
+                publishableToken = Secrets.IEXSandboxPublishableToken;
+                secretToken = Secrets.IEXSandboxSecretToken;
+            }
+
+            iexClient = new IEXCloudClient(publishableToken, secretToken, false, useSandbox);
+            alphaVantageClient = new AlphaVantage(Secrets.AlphaVantageApiKey);
             httpClient = new HttpClient();
         }
 
         public async Task<string> Handle(string text, string userId)
         {
+            var initialStockQuote = await iexClient.StockPrices.QuoteAsync(text);
+            if (initialStockQuote.Data != null)
+            {
+                return ProcessQuote(initialStockQuote.Data);
+            }
+
+            SearchResponse searchResponse;
+
+            try
+            {
+                searchResponse = await SearchAlphaVantage(text);
+                if (searchResponse.BestMatches.Count == 0)
+                {
+                    return $"No stocks found for {text}";
+                }
+            }
+            catch (AlphaVantageApiLimitException)
+            {
+                return "Alpha Vantage search rate limited. Try the stock symbol directly or try again in a minute.";
+            }
+            catch (AlphaVantageException ex)
+            {
+                return $"Unknown Alpha Vantage error: {ex.Message}";
+            }
+
+            BestMatch stock = searchResponse.BestMatches[0];
+            var stockQuote = await iexClient.StockPrices.QuoteAsync(stock.Symbol);
+            if (!string.IsNullOrWhiteSpace(stockQuote.ErrorMessage))
+            {
+                return $"Error: {stockQuote.ErrorMessage}";
+            }
+            return ProcessQuote(stockQuote.Data);
+        }
+
+        private string ProcessQuote(Quote quote)
+        {
+            string response = $"{quote.symbol}: {quote.companyName}\n" +
+                $"{quote.latestPrice} (as of {GetDateTimeDisplayString(quote.latestUpdate)})\n" +
+                $"{GetChangeString(quote.change)}: {quote.change:C} ({quote.changePercent:P2})\n" +
+                $"High: {quote.high} at {GetDateTimeDisplayString(quote.highTime)}\n" +
+                $"Low: {quote.low} at {GetDateTimeDisplayString(quote.lowTime)}";
+
+            if (!quote.isUSMarketOpen)
+            {
+                response += $"\nExtended Hours\n" +
+                    $"{quote.extendedPrice} (as of {GetDateTimeDisplayString(quote.extendedPriceTime)})\n" +
+                    $"{GetChangeString(quote.extendedChange)}: {quote.extendedChange:C} ({quote.extendedChangePercent:P2})";
+            }
+            return response;
+        }
+
+        private async Task<SearchResponse> SearchAlphaVantage(string text)
+        {
             Url url = new Url(BaseUrl)
                 .SetQueryParam("function", "SYMBOL_SEARCH")
                 .SetQueryParam("keywords", text)
                 .SetQueryParam("apikey", Secrets.AlphaVantageApiKey);
-            SearchResponse searchResponse = JsonConvert.DeserializeObject<SearchResponse>(await (await httpClient.GetAsync(url)).Content.ReadAsStringAsync());
-            if (searchResponse.BestMatches.Count == 0)
-            {
-                return $"No stocks found for {text}";
-            }
-
-            BestMatch stock = searchResponse.BestMatches[0];
-            try
-            {
-                // the Intraday result doesn't contain the open/close price for a day, just the open and close price for a interval
-                var dailyResult = await client.Stocks.Daily(stock.Symbol).GetAsync();
-                var intraDayResult = await client.Stocks.IntraDay(stock.Symbol)
-                    .SetInterval(Interval.OneMinute)
-                    .GetAsync();
-                TimeSeriesEntry firstDailyResult = dailyResult.Data.FirstOrDefault();
-                TimeSeriesEntry firstIntradayResult = intraDayResult.Data.FirstOrDefault();
-                if (firstDailyResult == null || firstIntradayResult == null)
-                {
-                    return $"No stock info found for {stock.Symbol}: {stock.Name}";
-                }
-
-                double change = firstIntradayResult.Close - firstDailyResult.Open;
-                double percentChange = PercentChange(firstIntradayResult.Close, firstDailyResult.Open);
-                string changeString;
-                if (change > 0)
-                {
-                    changeString = "Up";
-                }
-                else if (change == 0)
-                {
-                    changeString = "None";
-                }
-                else
-                {
-                    changeString = "Down";
-                }
-
-                string lastRefreshed = intraDayResult.Meta["Last Refreshed"];
-                string timeZone = intraDayResult.Meta["Time Zone"];
-                DateTime parsedLastRefresh = DateTime.Parse(lastRefreshed);
-                DateTime firstResultTimstamp = firstIntradayResult.Timestamp;
-                return $"{stock.Symbol}: {stock.Name}\n{firstIntradayResult.Close} (as of {firstResultTimstamp:s} {timeZone})\n{changeString}: {change:C} ({percentChange:P2})\nLast Refreshed: {parsedLastRefresh:s} {timeZone}";
-            }
-            catch (AlphaVantageApiLimitException)
-            {
-                return "Rate limited. Try again in a minute.";
-            }
-            catch (AlphaVantageException ex)
-            {
-                return $"Unknown error\n{ex.Message}";
-            }
-            catch (Exception ex)
-            {
-                return $"Some other error: {ex.Message}";
-            }
+            return JsonConvert.DeserializeObject<SearchResponse>(await (await httpClient.GetAsync(url)).Content.ReadAsStringAsync());
         }
 
-        private double PercentChange(double newPrice, double oldPrice)
+        private string? GetDateTimeDisplayString(long? epochMilliseconds)
         {
-            return (newPrice - oldPrice) / oldPrice;
+            var info = EpochMillisecondsToDateTimePair(epochMilliseconds);
+            if (info == null)
+            {
+                return null;
+            }
+
+            return $"{info.Value.Item1.ToString("s")} {info.Value.Item2.DisplayName}";
+        }
+
+        private (DateTimeOffset, TimeZoneInfo)? EpochMillisecondsToDateTimePair(long? epochMilliseconds)
+        {
+            if (epochMilliseconds == null)
+            {
+                return null;
+            }
+
+            TimeZoneInfo timeZoneInfo;
+            DateTimeOffset dateTimeOffset;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            }
+            else
+            {
+                timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+            }
+            dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(epochMilliseconds.Value).ToOffset(timeZoneInfo.BaseUtcOffset);
+            return (dateTimeOffset, timeZoneInfo);
+        }
+
+        private string GetChangeString(decimal? value)
+        {
+            if (value == null || value == 0)
+            {
+                return "No change";
+            }
+            else if (value > 0)
+            {
+                return "🔼";
+            }
+            else
+            {
+                return "🔽";
+            }
         }
     }
 }
