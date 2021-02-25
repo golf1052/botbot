@@ -81,11 +81,20 @@ namespace botbot.Command
         {
             string response = $"{quote.symbol}: {quote.companyName}\n" +
                 $"{quote.latestPrice} (as of {GetDateTimeDisplayString(quote.latestUpdate)})\n" +
-                $"{GetChangeString(quote.change)}: {quote.change:C} ({quote.changePercent:P2})\n" +
-                $"High: {quote.high} at {GetDateTimeDisplayString(quote.highTime)}\n" +
-                $"Low: {quote.low} at {GetDateTimeDisplayString(quote.lowTime)}";
+                $"{GetChangeString(quote.change)}: {quote.change:C} ({quote.changePercent:P2})\n";
 
-            if (!quote.isUSMarketOpen)
+            if (quote.high.HasValue)
+            {
+                response += $"High: {quote.high} at {GetDateTimeDisplayString(quote.highTime)}\n";
+            }
+
+            if (quote.low.HasValue)
+            {
+                response += $"Low: {quote.low} at {GetDateTimeDisplayString(quote.lowTime)}";
+            }
+
+            if (!quote.isUSMarketOpen && quote.extendedPrice.HasValue && quote.extendedPriceTime.HasValue &&
+                quote.extendedChange.HasValue && quote.extendedChangePercent.HasValue)
             {
                 response += $"\nExtended Hours\n" +
                     $"{quote.extendedPrice} (as of {GetDateTimeDisplayString(quote.extendedPriceTime)})\n" +
