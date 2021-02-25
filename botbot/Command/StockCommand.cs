@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -68,7 +69,12 @@ namespace botbot.Command
                 return $"Unknown Alpha Vantage error: {ex.Message}";
             }
 
-            BestMatch stock = searchResponse.BestMatches[0];
+            BestMatch? stock = searchResponse.BestMatches.FirstOrDefault(s => s.Currency == "USD");
+            if (stock == null)
+            {
+                return $"No stocks found for {text}";
+            }
+
             var stockQuote = await iexClient.StockPrices.QuoteAsync(stock.Symbol);
             if (!string.IsNullOrWhiteSpace(stockQuote.ErrorMessage))
             {
