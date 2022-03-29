@@ -162,5 +162,10 @@ namespace botbot
         {
             return $"https://news.ycombinator.com/item?id={Id}";
         }
+
+        public string GetDisplayString()
+        {
+            return $"From Hacker News\nTitle: {Title}\nPoints: {Points}\nComments: {NumComments}\nLink: {GetUrl()}";
+        }
     }
 }

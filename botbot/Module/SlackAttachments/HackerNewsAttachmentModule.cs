@@ -6,12 +6,12 @@ using golf1052.SlackAPI.Objects;
 
 namespace botbot.Module.SlackAttachments
 {
-    public class HackerNewsModule : SlackAttachmentModule
+    public class HackerNewsAttachmentModule : SlackAttachmentModule
     {
         private List<SlackChannel> slackChannels;
         private HackerNewsApi hackerNewsApi;
 
-        public HackerNewsModule(List<SlackChannel> slackChannels, Settings settings) : base(settings)
+        public HackerNewsAttachmentModule(List<SlackChannel> slackChannels, Settings settings) : base(settings)
         {
             this.slackChannels = slackChannels;
             hackerNewsApi = new HackerNewsApi();
@@ -19,7 +19,8 @@ namespace botbot.Module.SlackAttachments
 
         public override async Task<ModuleResponse> Handle(SlackMessage message, Attachment attachment)
         {
-            if (message.Channel == slackChannels.FirstOrDefault(c => c.Name == settings.TechChannel)?.Id)
+            if (message.Channel == slackChannels.FirstOrDefault(c => c.Name == settings.TechChannel)?.Id ||
+                message.Channel == slackChannels.FirstOrDefault(c => c.Name == settings.TestingChannel)?.Id)
             {
                 string url = attachment.TitleLink;
                 if (string.IsNullOrEmpty(url))
@@ -33,7 +34,7 @@ namespace botbot.Module.SlackAttachments
                 }
                 return new ModuleResponse()
                 {
-                    Message = $"From Hacker News\nTitle: {hackerNewsItem.Title}\nPoints: {hackerNewsItem.Points}\nComments: {hackerNewsItem.NumComments}\nLink: {hackerNewsItem.GetUrl()}",
+                    Message = hackerNewsItem.GetDisplayString(),
                     Timestamp = message.Message.ThreadTimestamp
                 };
             }

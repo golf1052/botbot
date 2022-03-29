@@ -162,6 +162,7 @@ namespace botbot
             messageModules.Add(new PresidentApprovalModule());
             messageModules.Add(new ElectionModelModule());
             messageModules.Add(new VersionModule());
+            messageModules.Add(new HackerNewsMessageModule());
 
             eventModules.Add(new TypingModule(slackCore, SendMessage));
             if (settings.HubotEnabled)
@@ -172,7 +173,7 @@ namespace botbot
             }
 
             attachmentModules.Add(new GooglePlayMusicModule());
-            attachmentModules.Add(new HackerNewsModule(slackChannels, settings));
+            attachmentModules.Add(new HackerNewsAttachmentModule(slackChannels, settings));
             attachmentModules.Add(new SpotifyDirectLinkModule());
 
             foreach (var eventModule in eventModules)
