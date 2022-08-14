@@ -44,6 +44,10 @@ namespace botbot.Command
 
         public async Task<string> Handle(string text, string userId)
         {
+            if (text.StartsWith('$'))
+            {
+                text = text[1..];
+            }
             var initialStockQuote = await iexClient.StockPrices.QuoteAsync(text);
             if (initialStockQuote.Data != null)
             {
