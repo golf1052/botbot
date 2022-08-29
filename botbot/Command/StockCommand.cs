@@ -130,6 +130,8 @@ namespace botbot.Command
                 return null;
             }
 
+            // The display name will be (UTC-05:00) Eastern Time (US & Canada) even when daylight saving time is active
+            // This is confusing but this is how Windows displays the name
             return $"{info.Value.Item1.ToString("s")} {info.Value.Item2.DisplayName}";
         }
 
@@ -150,7 +152,7 @@ namespace botbot.Command
             {
                 timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
             }
-            dateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(epochMilliseconds.Value).ToOffset(timeZoneInfo.BaseUtcOffset);
+            dateTimeOffset = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(epochMilliseconds.Value), timeZoneInfo);
             return (dateTimeOffset, timeZoneInfo);
         }
 
