@@ -95,12 +95,12 @@ namespace botbot.Controllers
                 JObject responseObject = ProcessSlashCommand(requestBody);
                 _ = httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
             }
-            else if (requestBody.Command == "/stock")
-            {
-                JObject responseObject = new JObject();
-                responseObject["text"] = await stockCommand.Handle(requestBody.Text!, requestBody.UserId!);
-                _ = httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
-            }
+            //else if (requestBody.Command == "/stock")
+            //{
+            //    JObject responseObject = new JObject();
+            //    responseObject["text"] = await stockCommand.Handle(requestBody.Text!, requestBody.UserId!);
+            //    _ = httpClient.PostAsync(requestBody.ResponseUrl, new StringContent(responseObject.ToString()));
+            //}
             else if (requestBody.Command == "/president")
             {
                 JObject responseObject = new JObject();

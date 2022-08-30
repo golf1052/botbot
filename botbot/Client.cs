@@ -15,6 +15,7 @@ using botbot.Module;
 using botbot.Module.SlackAttachments;
 using botbot.Status;
 using golf1052.SlackAPI;
+using golf1052.SlackAPI.BlockKit.Blocks;
 using golf1052.SlackAPI.Events;
 using golf1052.SlackAPI.Objects;
 using Microsoft.Extensions.Logging;
@@ -278,7 +279,7 @@ namespace botbot
             List<long> ids = new List<long>();
             foreach (var file in files)
             {
-                using (StreamReader reader = new StreamReader(File.OpenRead(file)))
+                using (StreamReader reader = new StreamReader(System.IO.File.OpenRead(file)))
                 {
                     JArray a = JArray.Load(new JsonTextReader(reader));
                     foreach (JObject o in a)
@@ -610,9 +611,16 @@ namespace botbot
                     if (task.IsCompletedSuccessfully)
                     {
                         ModuleResponse result = await task;
-                        if (result != null && !string.IsNullOrWhiteSpace(result.Message))
+                        if (result != null)
                         {
-                            await SendSlackMessage(result.Message, slackMessage.Channel, result.Timestamp);
+                            if (!string.IsNullOrWhiteSpace(result.Message))
+                            {
+                                await SendSlackMessage(result.Message, slackMessage.Channel, result.Timestamp);
+                            }
+                            else if (result.Blocks != null)
+                            {
+                                await SendBlockMessage(result.Blocks, slackMessage.Channel, result.Timestamp);
+                            }
                         }
                         moduleTasks.RemoveAt(i);
                         i--;
@@ -796,6 +804,11 @@ namespace botbot
                 o["thread_ts"] = threadTimestamp;
             }
             await SendMessage(o.ToString(Formatting.None));
+        }
+
+        public async Task SendBlockMessage(List<IBlock> blocks, string channel, string? threadTimestamp)
+        {
+            await slackCore.ChatPostMessage(string.Empty, channel, true, blocks: blocks, threadTs: threadTimestamp);
         }
 
         public async Task SendTyping(string channel)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using botbot.Controllers;
+using golf1052.SlackAPI.BlockKit.Blocks;
 
 namespace botbot.Module
 {
@@ -12,10 +13,10 @@ namespace botbot.Module
         {
             if (text.ToLower().StartsWith("botbot stock "))
             {
-                string message = await BotBotController.stockCommand.Handle(text.ToLower().Replace("botbot stock ", ""), userId);
+                List<IBlock>? blocks = await BotBotController.stockCommand.HandleBlock(text.ToLower().Replace("botbot stock ", ""), userId);
                 return new ModuleResponse()
                 {
-                    Message = message
+                    Blocks = blocks
                 };
             }
             return new ModuleResponse();

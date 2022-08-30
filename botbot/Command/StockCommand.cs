@@ -1,14 +1,26 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using botbot.Command.Stock;
 using Flurl;
+using golf1052.SlackAPI.BlockKit.Blocks;
 using IEXSharp;
+using IEXSharp.Helper;
+using IEXSharp.Model.CoreData.StockPrices.Request;
 using IEXSharp.Model.Shared.Response;
+using IEXSharp.Service.Cloud.CoreData.StockFundamentals;
 using Newtonsoft.Json;
+using OxyPlot;
+using OxyPlot.Axes;
+using OxyPlot.ImageSharp;
+using OxyPlot.Series;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using ThreeFourteen.AlphaVantage;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace botbot.Command
 {
@@ -24,7 +36,7 @@ namespace botbot.Command
         {
             string publishableToken;
             string secretToken;
-            bool useSandbox = false;
+            bool useSandbox = true;
 
             if (!useSandbox)
             {
@@ -42,49 +54,263 @@ namespace botbot.Command
             httpClient = new HttpClient();
         }
 
+        private async Task<string> Historical(string stock, string range)
+        {
+            string? filename = GetHistoricalImage(stock, range);
+            if (filename != null)
+            {
+                return filename;
+            }
+            QueryStringBuilder qsb = new QueryStringBuilder();
+            qsb.Add("chartCloseOnly", "true");
+            qsb.Add("chartSimplify", "true");
+
+            DateTimeAxis dateTimeAxis = new DateTimeAxis()
+            {
+                Position = AxisPosition.Bottom,
+                IntervalType = DateTimeIntervalType.Days
+            };
+
+            ChartRange chartRange = ChartRange.OneMonth;
+            if (range == "max")
+            {
+                chartRange = ChartRange.Max;
+                dateTimeAxis.IntervalType = DateTimeIntervalType.Months;
+            }
+            else if (range == "5y")
+            {
+                chartRange = ChartRange.FiveYears;
+                dateTimeAxis.IntervalType = DateTimeIntervalType.Months;
+            }
+            else if (range == "2y")
+            {
+                chartRange = ChartRange.TwoYears;
+                dateTimeAxis.IntervalType = DateTimeIntervalType.Months;
+            }
+            else if (range == "1y")
+            {
+                chartRange = ChartRange.OneYear;
+            }
+            else if (range == "ytd")
+            {
+                chartRange = ChartRange.Ytd;
+            }
+            else if (range == "6m")
+            {
+                chartRange = ChartRange.SixMonths;
+            }
+            else if (range == "3m")
+            {
+                chartRange = ChartRange.ThreeMonths;
+            }
+            else if (range == "1m")
+            {
+                chartRange = ChartRange.OneMonth;
+            }
+            else if (range == "5d")
+            {
+                chartRange = ChartRange.FiveDay;
+            }
+            var result = await iexClient.StockPrices.HistoricalPriceAsync(stock, chartRange, qsb);
+            if (result.ErrorMessage != null)
+            {
+                throw new Exception(result.ErrorMessage);
+            }
+
+            double dateMin = double.MaxValue;
+            double dateMax = 0;
+            double valMin = double.MaxValue;
+            double valMax = 0;
+            LineSeries lineSeries = new LineSeries();
+            foreach (var r in result.Data)
+            {
+                double closeValue = (double)r.close!.Value;
+                DateTime date = DateTime.Parse(r.date);
+                if (DateTimeAxis.ToDouble(date) > dateMax)
+                {
+                    dateMax = DateTimeAxis.ToDouble(date);
+                }
+                if (DateTimeAxis.ToDouble(date) < dateMin)
+                {
+                    dateMin = DateTimeAxis.ToDouble(date);
+                }
+                if (closeValue > valMax)
+                {
+                    valMax = closeValue;
+                }
+                if (closeValue < valMin)
+                {
+                    valMin = closeValue;
+                }
+                lineSeries.Points.Add(DateTimeAxis.CreateDataPoint(date, closeValue));
+            }
+            //dateTimeAxis.Minimum = dateMin;
+            //dateTimeAxis.Maximum = dateMax;
+            dateTimeAxis.MajorGridlineStyle = LineStyle.Solid;
+            dateTimeAxis.MinorGridlineStyle = LineStyle.Solid;
+            dateTimeAxis.StringFormat = "yyyy-MM-dd";
+
+            PlotModel plotModel = new PlotModel()
+            {
+                Title = $"{stock} {range}"
+            };
+            plotModel.Series.Add(lineSeries);
+            plotModel.Axes.Add(dateTimeAxis);
+            plotModel.Axes.Add(new LinearAxis()
+            {
+                Position = AxisPosition.Left,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.Solid
+                //Minimum = valMin,
+                //Maximum = valMax
+            });
+
+            plotModel.Background = OxyColors.White;
+
+            filename = $"{stock}_{range}_{DateTime.Now:yyyy-MM-dd}.jpg";
+            using (var stream = new MemoryStream())
+            {
+                var jpegExporter = new JpegExporter(1920, 1080);
+                jpegExporter.Export(plotModel, stream);
+                System.IO.File.WriteAllBytes($"../../images/{filename}", stream.ToArray());
+            }
+            return filename;
+        }
+
+        private string? GetHistoricalImage(string stock, string range)
+        {
+            string filename = $"{stock}_{range}_{DateTime.Now:yyyy-MM-dd}.jpg";
+            string path = $"../../images/{filename}";
+            if (System.IO.File.Exists(path))
+            {
+                return filename;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         public async Task<string> Handle(string text, string userId)
         {
+            return null;
+        }
+
+        public async Task<List<IBlock>?> HandleBlock(string text, string userId)
+        {
+            List<IBlock> result = new List<IBlock>();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                result.Add(new Section("No stock specified"));
+                return result;
+            }
+
             if (text.StartsWith('$'))
             {
                 text = text[1..];
             }
+
+            var splitText = text.Split(' ');
+            string last = splitText.Last().ToLower();
+            if (last == "max" || last == "5y" || last == "2y" || last == "1y" || last == "ytd" || last == "6m" || last == "3m" || last == "1m" || last == "5d")
+            {
+                string stock;
+                if (splitText.Length > 2)
+                {
+                    // Historical prices only works with symbols so first search for the symbol
+                    try
+                    {
+                        string searchText = string.Join(" ", splitText[..^1]);
+                        BestMatch? stockSearch = await Search(searchText);
+                        if (stockSearch == null)
+                        {
+                            result.Add(new Section($"No stocks found for {searchText}"));
+                            return result;
+                        }
+                        stock = stockSearch.Symbol!;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Add(new Section(ex.Message));
+                        return result;
+                    }
+                }
+                else
+                {
+                    stock = splitText[0];
+                }
+
+                string filename;
+                try
+                {
+                    filename = await Historical(stock, last);
+                }
+                catch (Exception ex)
+                {
+                    result.Add(new Section(ex.Message));
+                    return result;
+                }
+
+                result.Add(new golf1052.SlackAPI.BlockKit.Blocks.Image($"https://images.golf1052.com/{filename}", filename));
+                return result;
+            }
+
             var initialStockQuote = await iexClient.StockPrices.QuoteAsync(text);
             if (initialStockQuote.Data != null)
             {
-                return ProcessQuote(initialStockQuote.Data);
+                result.Add(new Section(ProcessQuote(initialStockQuote.Data)));
+                return result;
             }
 
-            SearchResponse searchResponse;
-
+            BestMatch? bestMatch;
             try
             {
-                searchResponse = await SearchAlphaVantage(text);
+                bestMatch = await Search(text);
+            }
+            catch (Exception ex)
+            {
+                result.Add(new Section(ex.Message));
+                return result;
+            }
+
+            if (bestMatch == null)
+            {
+                result.Add(new Section($"No stocks found for {text}"));
+                return result;
+            }
+
+            var stockQuote = await iexClient.StockPrices.QuoteAsync(bestMatch.Symbol);
+            if (!string.IsNullOrWhiteSpace(stockQuote.ErrorMessage))
+            {
+                result.Add(new Section($"Error: {stockQuote.ErrorMessage}"));
+                return result;
+            }
+
+            result.Add(new Section(ProcessQuote(stockQuote.Data)));
+            return result;
+        }
+
+        public async Task<BestMatch?> Search(string searchText)
+        {
+            SearchResponse searchResponse;
+            try
+            {
+                searchResponse = await SearchAlphaVantage(searchText);
                 if (searchResponse.BestMatches.Count == 0)
                 {
-                    return $"No stocks found for {text}";
+                    throw new Exception($"No stocks found for {searchText}");
                 }
             }
             catch (AlphaVantageApiLimitException)
             {
-                return "Alpha Vantage search rate limited. Try the stock symbol directly or try again in a minute.";
+                throw new Exception("Alpha Vantage search rate limited. Try the stock symbol directly or try again in a minute.");
             }
             catch (AlphaVantageException ex)
             {
-                return $"Unknown Alpha Vantage error: {ex.Message}";
+                throw new Exception($"Unknown Alpha Vantage error: {ex.Message}");
             }
 
-            BestMatch? stock = searchResponse.BestMatches.FirstOrDefault(s => s.Currency == "USD");
-            if (stock == null)
-            {
-                return $"No stocks found for {text}";
-            }
-
-            var stockQuote = await iexClient.StockPrices.QuoteAsync(stock.Symbol);
-            if (!string.IsNullOrWhiteSpace(stockQuote.ErrorMessage))
-            {
-                return $"Error: {stockQuote.ErrorMessage}";
-            }
-            return ProcessQuote(stockQuote.Data);
+            return searchResponse.BestMatches.FirstOrDefault(s => s.Currency == "USD");
         }
 
         private string ProcessQuote(Quote quote)
@@ -119,7 +345,7 @@ namespace botbot.Command
                 .SetQueryParam("function", "SYMBOL_SEARCH")
                 .SetQueryParam("keywords", text)
                 .SetQueryParam("apikey", Secrets.AlphaVantageApiKey);
-            return JsonConvert.DeserializeObject<SearchResponse>(await (await httpClient.GetAsync(url)).Content.ReadAsStringAsync());
+            return JsonConvert.DeserializeObject<SearchResponse>(await (await httpClient.GetAsync(url)).Content.ReadAsStringAsync())!;
         }
 
         private string? GetDateTimeDisplayString(long? epochMilliseconds)
