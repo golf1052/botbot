@@ -36,7 +36,7 @@ namespace botbot.Command
         {
             string publishableToken;
             string secretToken;
-            bool useSandbox = true;
+            bool useSandbox = false;
 
             if (!useSandbox)
             {
