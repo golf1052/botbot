@@ -12,15 +12,12 @@ using IEXSharp;
 using IEXSharp.Helper;
 using IEXSharp.Model.CoreData.StockPrices.Request;
 using IEXSharp.Model.Shared.Response;
-using IEXSharp.Service.Cloud.CoreData.StockFundamentals;
 using Newtonsoft.Json;
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.ImageSharp;
 using OxyPlot.Series;
-using SixLabors.ImageSharp.Formats.Jpeg;
 using ThreeFourteen.AlphaVantage;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace botbot.Command
 {
@@ -68,7 +65,8 @@ namespace botbot.Command
             DateTimeAxis dateTimeAxis = new DateTimeAxis()
             {
                 Position = AxisPosition.Bottom,
-                IntervalType = DateTimeIntervalType.Days
+                IntervalType = DateTimeIntervalType.Days,
+                Angle = -45
             };
 
             ChartRange chartRange = ChartRange.OneMonth;
@@ -122,6 +120,7 @@ namespace botbot.Command
             double valMin = double.MaxValue;
             double valMax = 0;
             LineSeries lineSeries = new LineSeries();
+            lineSeries.StrokeThickness = 4;
             foreach (var r in result.Data)
             {
                 double closeValue = (double)r.close!.Value;
@@ -152,7 +151,9 @@ namespace botbot.Command
 
             PlotModel plotModel = new PlotModel()
             {
-                Title = $"{stock} {range}"
+                Title = $"{stock} {range}",
+                TitleFontSize = 28,
+                DefaultFontSize = 28
             };
             plotModel.Series.Add(lineSeries);
             plotModel.Axes.Add(dateTimeAxis);
@@ -251,7 +252,14 @@ namespace botbot.Command
                     return result;
                 }
 
-                result.Add(new golf1052.SlackAPI.BlockKit.Blocks.Image($"https://images.golf1052.com/{filename}", filename));
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    result.Add(new Section($"{filename}"));
+                }
+                else
+                {
+                    result.Add(new Image($"https://images.golf1052.com/{filename}", filename));
+                }
                 return result;
             }
 
