@@ -60,7 +60,7 @@ namespace botbot.Command
             }
             QueryStringBuilder qsb = new QueryStringBuilder();
             qsb.Add("chartCloseOnly", "true");
-            qsb.Add("chartSimplify", "true");
+            qsb.Add("includeToday", "true");
 
             DateTimeAxis dateTimeAxis = new DateTimeAxis()
             {
