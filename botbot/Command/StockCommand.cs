@@ -146,7 +146,12 @@ namespace botbot.Command
             DateTime? previousDate = null;
             foreach (var r in result.Data)
             {
-                double closeValue = (double)r.close!.Value;
+                // sometimes close can be null so skip
+                if (r.close == null)
+                {
+                    continue;
+                }
+                double closeValue = (double)r.close.Value;
                 string dateString = r.date;
                 if (!string.IsNullOrEmpty(r.minute))
                 {
