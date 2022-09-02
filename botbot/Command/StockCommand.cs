@@ -51,7 +51,7 @@ namespace botbot.Command
             httpClient = new HttpClient();
         }
 
-        private async Task<string> Historical(string stock, string range)
+        private async Task<string> GenerateHistoricalChart(string stock, string range)
         {
             string? filename = GetHistoricalImage(stock, range);
             if (filename != null)
@@ -66,8 +66,14 @@ namespace botbot.Command
             {
                 Position = AxisPosition.Bottom,
                 IntervalType = DateTimeIntervalType.Days,
-                Angle = -45
+                Angle = -45,
+                StringFormat = "yyyy-MM-dd"
             };
+
+            // When using 1mm or 5dm, in order to remove aftermarket gaps, we need to create a lookup table that maps
+            // actual dates/values to skipped dates/values
+            bool createIntervalLookupTable = false;
+            List<(double, double)> lookupTable = new List<(double, double)>();
 
             ChartRange chartRange = ChartRange.OneMonth;
             if (range == "max")
@@ -105,10 +111,25 @@ namespace botbot.Command
             {
                 chartRange = ChartRange.OneMonth;
             }
+            else if (range == "1mm")
+            {
+                createIntervalLookupTable = true;
+                chartRange = ChartRange.OneMonthMinute;
+                dateTimeAxis.IntervalType = DateTimeIntervalType.Minutes;
+                dateTimeAxis.StringFormat = "yyyy-MM-dd HH:mm";
+            }
             else if (range == "5d")
             {
                 chartRange = ChartRange.FiveDay;
             }
+            else if (range == "5dm")
+            {
+                createIntervalLookupTable = true;
+                chartRange = ChartRange.FiveDayMinute;
+                dateTimeAxis.IntervalType = DateTimeIntervalType.Minutes;
+                dateTimeAxis.StringFormat = "yyyy-MM-dd HH:mm";
+            }
+
             var result = await iexClient.StockPrices.HistoricalPriceAsync(stock, chartRange, qsb);
             if (result.ErrorMessage != null)
             {
@@ -121,10 +142,17 @@ namespace botbot.Command
             double valMax = 0;
             LineSeries lineSeries = new LineSeries();
             lineSeries.StrokeThickness = 4;
+
+            DateTime? previousDate = null;
             foreach (var r in result.Data)
             {
                 double closeValue = (double)r.close!.Value;
-                DateTime date = DateTime.Parse(r.date);
+                string dateString = r.date;
+                if (!string.IsNullOrEmpty(r.minute))
+                {
+                    dateString += $" {r.minute}";
+                }
+                DateTime date = DateTime.Parse(dateString);
                 if (DateTimeAxis.ToDouble(date) > dateMax)
                 {
                     dateMax = DateTimeAxis.ToDouble(date);
@@ -141,13 +169,69 @@ namespace botbot.Command
                 {
                     valMin = closeValue;
                 }
-                lineSeries.Points.Add(DateTimeAxis.CreateDataPoint(date, closeValue));
+
+                if (createIntervalLookupTable)
+                {
+                    // first determine if the DateTime is starting right after after hours
+                    // after hours is before 9:30 AM or after 4:00 PM, weekends, or holidays
+                    if (previousDate != null && date - previousDate > TimeSpan.FromHours(17.5))
+                    {
+                        const double gapIncrementValue = 1.0 / TimeSpan.TicksPerDay;
+                        // create mapping from wanted date value to actual date value
+                        if (lookupTable.Count == 0)
+                        {
+                            lookupTable.Add((DateTimeAxis.ToDouble(date), DateTimeAxis.ToDouble(previousDate.Value) + gapIncrementValue));
+                        }
+                        else
+                        {
+                            lookupTable.Add((DateTimeAxis.ToDouble(date), lookupTable.Last().Item2 + (DateTimeAxis.ToDouble(previousDate.Value) - lookupTable.Last().Item1) + gapIncrementValue));
+                        }
+                    }
+                    
+                    // then map the current date to the actual date value
+                    if (lookupTable.Count == 0)
+                    {
+                        lineSeries.Points.Add(DateTimeAxis.CreateDataPoint(date, closeValue));
+                    }
+                    else
+                    {
+                        double mappedDateValue = lookupTable.Last().Item2 + DateTimeAxis.ToDouble(date) - lookupTable.Last().Item1;
+                        lineSeries.Points.Add(new DataPoint(mappedDateValue, closeValue));
+                    }
+                }
+                else
+                {
+                    lineSeries.Points.Add(DateTimeAxis.CreateDataPoint(date, closeValue));
+                }
+                previousDate = date;
             }
-            //dateTimeAxis.Minimum = dateMin;
-            //dateTimeAxis.Maximum = dateMax;
+
+            if (createIntervalLookupTable && lookupTable.Count > 0)
+            {
+                dateTimeAxis.LabelFormatter = (double value) =>
+                {
+                    if (value < lookupTable[0].Item2)
+                    {
+                        return DateTimeAxis.ToDateTime(value).ToString("yyyy-MM-dd HH:mm");
+                    }
+                    else
+                    {
+                        var lastMapping = lookupTable[0];
+                        foreach (var mapping in lookupTable)
+                        {
+                            if (value < mapping.Item2)
+                            {
+                                break;
+                            }
+                            lastMapping = mapping;
+                        }
+                        return DateTimeAxis.ToDateTime(lastMapping.Item1 + value - lastMapping.Item2).ToString("yyyy-MM-dd HH:mm");
+                    }
+                };
+            }
+
             dateTimeAxis.MajorGridlineStyle = LineStyle.Solid;
             dateTimeAxis.MinorGridlineStyle = LineStyle.Solid;
-            dateTimeAxis.StringFormat = "yyyy-MM-dd";
 
             PlotModel plotModel = new PlotModel()
             {
@@ -157,13 +241,14 @@ namespace botbot.Command
             };
             plotModel.Series.Add(lineSeries);
             plotModel.Axes.Add(dateTimeAxis);
+            const double nearestRounding = 5;
             plotModel.Axes.Add(new LinearAxis()
             {
                 Position = AxisPosition.Left,
                 MajorGridlineStyle = LineStyle.Solid,
-                MinorGridlineStyle = LineStyle.Solid
-                //Minimum = valMin,
-                //Maximum = valMax
+                MinorGridlineStyle = LineStyle.Solid,
+                Minimum = Math.Floor(valMin / nearestRounding) * nearestRounding,
+                Maximum = Math.Ceiling(valMax / nearestRounding) * nearestRounding
             });
 
             plotModel.Background = OxyColors.White;
@@ -213,7 +298,7 @@ namespace botbot.Command
 
             var splitText = text.Split(' ');
             string last = splitText.Last().ToLower();
-            if (last == "max" || last == "5y" || last == "2y" || last == "1y" || last == "ytd" || last == "6m" || last == "3m" || last == "1m" || last == "5d")
+            if (last == "max" || last == "5y" || last == "2y" || last == "1y" || last == "ytd" || last == "6m" || last == "3m" || last == "1m" || last == "1mm" || last == "5d" || last == "5dm")
             {
                 string stock;
                 if (splitText.Length > 2)
@@ -244,7 +329,7 @@ namespace botbot.Command
                 string filename;
                 try
                 {
-                    filename = await Historical(stock, last);
+                    filename = await GenerateHistoricalChart(stock, last);
                 }
                 catch (Exception ex)
                 {
