@@ -164,6 +164,7 @@ namespace botbot
             messageModules.Add(new ElectionModelModule());
             messageModules.Add(new VersionModule());
             messageModules.Add(new HackerNewsMessageModule());
+            messageModules.Add(new OpenAIModule());
 
             eventModules.Add(new TypingModule(slackCore, SendMessage));
             if (settings.HubotEnabled)
