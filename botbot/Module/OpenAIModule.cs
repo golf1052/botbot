@@ -4,12 +4,16 @@ using OpenAI.GPT3;
 using OpenAI.GPT3.ObjectModels.RequestModels;
 using OpenAI.GPT3.ObjectModels;
 using System.Linq;
+using GPT_3_Encoder_Sharp;
 
 namespace botbot.Module
 {
     public class OpenAIModule : IMessageModule
     {
+        private const int MaxTokens = 4096;
         private readonly OpenAIService openAIService;
+        private readonly Encoder encoder;
+
         public OpenAIModule()
         {
             openAIService = new OpenAIService(new OpenAiOptions()
@@ -17,6 +21,7 @@ namespace botbot.Module
                 ApiKey = Secrets.OpenAIApiKey,
                 Organization = Secrets.OpenAIOrganization
             });
+            encoder = Encoder.Get_Encoder();
         }
 
         public async Task<ModuleResponse> Handle(string text, string userId, string channel)
@@ -33,12 +38,15 @@ namespace botbot.Module
                     text = text.Substring(splitText[0].Length).Trim();
                 }
 
+                // Encode our text first so we know how many remaining tokens we have
+                var tokens = encoder.Encode(text);
+
                 var completionResult = await openAIService.Completions.CreateCompletion(new CompletionCreateRequest()
                 {
                     Prompt = text,
                     Model = Models.TextDavinciV3,
                     Temperature = temp,
-                    MaxTokens = 2048
+                    MaxTokens = MaxTokens - tokens.Count
                 });
                 
                 if (completionResult.Successful)
