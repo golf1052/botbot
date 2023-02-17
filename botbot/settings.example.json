@@ -2,7 +2,7 @@
     "workspaces": [
         {
             "id": "", // Slack team id
-            "token": "" // Slack integration token
+            "token": "" // Slack integration bot token
         }
     ]
 }

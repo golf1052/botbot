@@ -6,7 +6,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceRoot}/botbot/bin/Debug/netcoreapp3.1/botbot.dll",
+            "program": "${workspaceRoot}/botbot/bin/Debug/net7.0/botbot.dll",
             "args": [],
             "cwd": "${workspaceRoot}/botbot",
             "externalConsole": false,
