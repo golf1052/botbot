@@ -10,7 +10,7 @@ namespace botbot
         public const string SpotifyClientSecret = "";
         public const string SpotifyRedirectUrl = "";
         public const string AlphaVantageApiKey = "";
-        public const string IEXPublishableToken = "";
+        public const string IEXPublishableToken = "faketoken";
         public const string IEXSecretToken = "";
         public const string IEXSandboxPublishableToken = "";
         public const string IEXSandboxSecretToken = "";
@@ -20,8 +20,8 @@ namespace botbot
         public const ushort HubotPortNumber = 6789;
         public const string SpotifyDeduperClientId = "";
         public const string SpotifyDeduperClientSecret = "";
-        public const string OpenAIOrganization = "";
-        public const string OpenAIApiKey = "";
+        public const string OpenAIOrganization = "fakeorg";
+        public const string OpenAIApiKey = "fakekey";
 
         public const string DiscordToken = "";
     }
