@@ -38,7 +38,14 @@ namespace botbot
 
         static Client()
         {
-            Mongo = new MongoClient(Secrets.MongoConnectionString);
+            if (!string.IsNullOrWhiteSpace(Secrets.MongoConnectionString))
+            {
+                Mongo = new MongoClient(Secrets.MongoConnectionString);
+            }
+            else
+            {
+                Mongo = new MongoClient(new MongoUrlBuilder().ToMongoUrl());
+            }
             PlusPlusDatabase = Mongo.GetDatabase("plusplus");
             ThingCollection = PlusPlusDatabase.GetCollection<PlusPlusThing>("things");
             PlusPlusLogCollection = PlusPlusDatabase.GetCollection<PlusPlusLog>("log");
@@ -125,7 +132,10 @@ namespace botbot
             messageModules = new List<IMessageModule>();
             eventModules = new List<IEventModule>();
             attachmentModules = new List<ISlackAttachmentModule>();
-            statusNotifier = new StatusNotifier(settings.Id!);
+            if (!string.IsNullOrWhiteSpace(settings.StatusChannel))
+            {
+                statusNotifier = new StatusNotifier(settings.Id!);
+            }
             jsonSerializerSettings = new JsonSerializerSettings()
             {
                 ContractResolver = new DefaultContractResolver()
@@ -153,7 +163,7 @@ namespace botbot
             await webSocket.ConnectAsync(uri, CancellationToken.None);
             slackUsers = await slackCore.UsersList();
             slackChannels = await slackCore.ConversationsList(true, "public_channel,private_channel");
-            await spotifyClient.RequestAccessToken();
+            //await spotifyClient.RequestAccessToken();
 
             messageModules.Add(new PingModule());
             messageModules.Add(new HiModule());
@@ -645,16 +655,19 @@ namespace botbot
 
         async Task ProcessProfileChange(JObject responseObject)
         {
-            var userId = (string)responseObject["user"]!["id"]!;
-            string statusEmoji = (string)responseObject["user"]!["profile"]!["status_emoji"]!;
-            var status = $"{statusEmoji} {responseObject["user"]!["profile"]!["status_text"]}";
-            // filter out Slack automatic "in a call statuses"
-            if (settings.StatusChannel != null && statusNotifier.HasChanged(userId, status) &&
-                !string.IsNullOrWhiteSpace(status) && statusEmoji != "📞" && statusEmoji != ":slack_call:")
+            if (!string.IsNullOrWhiteSpace(settings.StatusChannel))
             {
-                await SendSlackMessage($"{responseObject["user"]!["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
+                var userId = (string)responseObject["user"]!["id"]!;
+                string statusEmoji = (string)responseObject["user"]!["profile"]!["status_emoji"]!;
+                var status = $"{statusEmoji} {responseObject["user"]!["profile"]!["status_text"]}";
+                // filter out Slack automatic "in a call statuses"
+                if (statusNotifier.HasChanged(userId, status) &&
+                    !string.IsNullOrWhiteSpace(status) && statusEmoji != "📞" && statusEmoji != ":slack_call:")
+                {
+                    await SendSlackMessage($"{responseObject["user"]!["name"]} changed their status to {status}", GetChannelIdByName(settings.StatusChannel));
+                }
+                statusNotifier.SaveStatus(userId, status);
             }
-            statusNotifier.SaveStatus(userId, status);
         }
 
         private string? FindDmChannel(string userId, JArray imList)

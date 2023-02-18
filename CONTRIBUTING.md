@@ -3,6 +3,14 @@
 - [.NET 7](https://dot.net)
 - [Visual Studio Code](https://code.visualstudio.com) or [Visual Studio 2022](https://visualstudio.microsoft.com)
 
+## Dependencies
+
+You'll need to `git clone` these repositories into the same directory where you cloned `botbot`.
+
+- [golf1052.DiscordAPI](https://github.com/golf1052/golf1052.DiscordAPI)
+- [golf1052.SlackAPI](https://github.com/golf1052/SlackAPI)
+- [Reverb](https://github.com/golf1052/Reverb)
+
 # Secrets
 
 ## settings.json
