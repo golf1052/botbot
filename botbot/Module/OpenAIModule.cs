@@ -24,26 +24,36 @@ namespace botbot.Module
             encoder = Encoder.Get_Encoder();
         }
 
+        private string GetPrefix(string command)
+        {
+            if (command == "eli5"){
+                return "Explain like I'm 5 years old: ";
+            }
+
+            return "";
+        }
+
         public async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
-            if (text.ToLower().StartsWith("botbot gpt"))
+            if (text.ToLower().StartsWith("botbot gpt") || text.ToLower().StartsWith("botbot eli5"))
             {
-                text = text.Substring(10).Trim();
+                string[] splitText = text.Split(' ');
+                string prefix = GetPrefix(splitText[1]);
+                string prompt = string.Join(" ", splitText.Skip(2).Take(splitText.Length - 1));
                 float temp = 1;
-                if (text.StartsWith("temp"))
+                if (splitText[2].StartsWith("temp"))
                 {
-                    string[] splitText = text.Split(' ');
-                    string[] splitTemp = splitText[0].Split(':');
-                    temp = float.Parse(splitTemp[1]);
-                    text = text.Substring(splitText[0].Length).Trim();
+                    temp = float.Parse(splitText[2].Split(':')[1]);
+                    prompt = string.Join(" ", splitText.Skip(3).Take(splitText.Length - 1));
                 }
+                prompt = prefix + prompt;
 
                 // Encode our text first so we know how many remaining tokens we have
-                var tokens = encoder.Encode(text);
+                var tokens = encoder.Encode(prompt);
 
                 var completionResult = await openAIService.Completions.CreateCompletion(new CompletionCreateRequest()
                 {
-                    Prompt = text,
+                    Prompt = prompt,
                     Model = Models.TextDavinciV3,
                     Temperature = temp,
                     MaxTokens = MaxTokens - tokens.Count
