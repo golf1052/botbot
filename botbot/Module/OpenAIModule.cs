@@ -1,10 +1,11 @@
-﻿using System.Threading.Tasks;
-using OpenAI.GPT3.Managers;
-using OpenAI.GPT3;
-using OpenAI.GPT3.ObjectModels.RequestModels;
-using OpenAI.GPT3.ObjectModels;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using GPT_3_Encoder_Sharp;
+using OpenAI.GPT3;
+using OpenAI.GPT3.Managers;
+using OpenAI.GPT3.ObjectModels;
+using OpenAI.GPT3.ObjectModels.RequestModels;
 
 namespace botbot.Module
 {
@@ -22,15 +23,6 @@ namespace botbot.Module
                 Organization = Secrets.OpenAIOrganization
             });
             encoder = Encoder.Get_Encoder();
-        }
-
-        private string GetPrefix(string command)
-        {
-            if (command == "eli5"){
-                return "Explain like I'm 5 years old: ";
-            }
-
-            return "";
         }
 
         public async Task<ModuleResponse> Handle(string text, string userId, string channel)
@@ -51,19 +43,41 @@ namespace botbot.Module
                 // Encode our text first so we know how many remaining tokens we have
                 var tokens = encoder.Encode(prompt);
 
-                var completionResult = await openAIService.Completions.CreateCompletion(new CompletionCreateRequest()
+                var completionResult = await openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest()
                 {
-                    Prompt = prompt,
-                    Model = Models.TextDavinciV3,
+                    Messages = new List<ChatMessage>()
+                    {
+                        ChatMessage.FromUser(prompt)
+                    },
+                    Model = Models.ChatGpt3_5Turbo,
                     Temperature = temp,
                     MaxTokens = MaxTokens - tokens.Count
                 });
                 
                 if (completionResult.Successful)
                 {
+                    var chatChoiceResponse = completionResult.Choices.FirstOrDefault();
+                    if (chatChoiceResponse == null)
+                    {
+                        return new ModuleResponse()
+                        {
+                            Message = "*No responses from OpenAI*"
+                        };
+                    }
+
+                    string responseMessage;
+                    if (chatChoiceResponse.FinishReason == "content_filter")
+                    {
+                        responseMessage = $"**NOTE: OpenAI omitted content due to a flag from OpenAI's content filters** {chatChoiceResponse.Message.Content}";
+                    }
+                    else
+                    {
+                        responseMessage = chatChoiceResponse.Message.Content;
+                    }
+
                     return new ModuleResponse()
                     {
-                        Message = completionResult.Choices.FirstOrDefault()!.Text
+                        Message = responseMessage
                     };
                 }
                 else
@@ -85,6 +99,16 @@ namespace botbot.Module
                 }
             }
             return new ModuleResponse();
+        }
+
+        private string GetPrefix(string command)
+        {
+            if (command == "eli5")
+            {
+                return "Explain like I'm 5 years old: ";
+            }
+
+            return "";
         }
     }
 }
