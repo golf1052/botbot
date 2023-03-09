@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Betalgo.OpenAI.GPT3" Version="6.6.7" />
+    <PackageReference Include="Betalgo.OpenAI.GPT3" Version="6.7.2" />
     <PackageReference Include="Flurl" Version="3.0.7" />
     <PackageReference Include="GPT-3-Encoder-Sharp" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
@@ -34,8 +34,8 @@
     <PackageReference Include="System.IO.Pipelines" Version="7.0.0" />
     <PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
-    <PackageReference Include="MongoDb.Driver" Version="2.13.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="MongoDb.Driver" Version="2.19.0" />
     <PackageReference Include="ThreeFourteen.AlphaVantage" Version="1.0.3" />
     <PackageReference Include="VSLee.IEXSharp" Version="2.9.4" />
   </ItemGroup>
