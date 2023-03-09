@@ -6,6 +6,7 @@ using OpenAI.GPT3;
 using OpenAI.GPT3.Managers;
 using OpenAI.GPT3.ObjectModels;
 using OpenAI.GPT3.ObjectModels.RequestModels;
+using OpenAI.GPT3.Tokenizer.GPT3;
 
 namespace botbot.Module
 {
@@ -13,7 +14,7 @@ namespace botbot.Module
     {
         private const int MaxTokens = 4096;
         private readonly OpenAIService openAIService;
-        private readonly Encoder encoder;
+        //private readonly Encoder encoder;
 
         public OpenAIModule()
         {
@@ -22,7 +23,7 @@ namespace botbot.Module
                 ApiKey = Secrets.OpenAIApiKey,
                 Organization = Secrets.OpenAIOrganization
             });
-            encoder = Encoder.Get_Encoder();
+            //encoder = Encoder.Get_Encoder();
         }
 
         public async Task<ModuleResponse> Handle(string text, string userId, string channel)
@@ -41,7 +42,7 @@ namespace botbot.Module
                 prompt = prefix + prompt;
 
                 // Encode our text first so we know how many remaining tokens we have
-                var tokens = encoder.Encode(prompt);
+                var tokens = TokenizerGpt3.Encode(prompt);
 
                 var completionResult = await openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest()
                 {
