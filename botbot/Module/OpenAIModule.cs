@@ -51,8 +51,7 @@ namespace botbot.Module
                         ChatMessage.FromUser(prompt)
                     },
                     Model = Models.ChatGpt3_5Turbo,
-                    Temperature = temp,
-                    MaxTokens = MaxTokens - tokens.Count * 2 + 7
+                    Temperature = temp
                 });
                 
                 if (completionResult.Successful)
