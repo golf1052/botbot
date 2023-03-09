@@ -52,7 +52,7 @@ namespace botbot.Module
                     },
                     Model = Models.ChatGpt3_5Turbo,
                     Temperature = temp,
-                    MaxTokens = MaxTokens - tokens.Count
+                    MaxTokens = MaxTokens - tokens.Count * 2
                 });
                 
                 if (completionResult.Successful)
