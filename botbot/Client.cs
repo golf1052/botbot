@@ -104,7 +104,7 @@ namespace botbot
         private List<IEventModule> eventModules;
         private List<ISlackAttachmentModule> attachmentModules;
         private HubotModule? hubotModule;
-        private StatusNotifier statusNotifier;
+        private StatusNotifier? statusNotifier;
 
         HttpClient httpClient;
 
