@@ -30,6 +30,11 @@ namespace botbot
                 return null;
             }
 
+            if (hitItemsUrls.Count == 1)
+            {
+                return hitItemsUrls[0];
+            }
+
             List<SearchItem> hitItemsTitles = await Search(hitItemsUrls[0].Title!, false);
 
             List<SearchItem> hitItems = new List<SearchItem>();
@@ -64,11 +69,13 @@ namespace botbot
             }
 
             // Else just sort by date, descending, and return the first one
-            hitItems.Sort((a, b) =>
-            {
-                return b.CreatedAt.CompareTo(a.CreatedAt);
-            });
+            hitItems.Sort(CompareSearchItemsByDateDescending);
             return hitItems[0];
+        }
+
+        private int CompareSearchItemsByDateDescending(SearchItem a, SearchItem b)
+        {
+            return b.CreatedAt.CompareTo(a.CreatedAt);
         }
 
         private async Task<List<SearchItem>> Search(string query, bool onlyUrls)
@@ -143,7 +150,7 @@ namespace botbot
         [JsonProperty("created_at")]
         public DateTime CreatedAt { get; private set; }
 
-        [JsonProperty("tags")]
+        [JsonProperty("_tags")]
         public List<string>? Tags { get; private set; }
 
         public bool OnFrontPage
