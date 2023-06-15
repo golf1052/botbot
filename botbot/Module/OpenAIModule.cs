@@ -1,12 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using GPT_3_Encoder_Sharp;
-using OpenAI.GPT3;
-using OpenAI.GPT3.Managers;
-using OpenAI.GPT3.ObjectModels;
-using OpenAI.GPT3.ObjectModels.RequestModels;
-using OpenAI.GPT3.Tokenizer.GPT3;
+using OpenAI;
+using OpenAI.Managers;
+using OpenAI.ObjectModels.RequestModels;
+using OpenAI.Tokenizer.GPT3;
 
 namespace botbot.Module
 {
@@ -39,19 +37,23 @@ namespace botbot.Module
                     temp = float.Parse(splitText[2].Split(':')[1]);
                     prompt = string.Join(" ", splitText.Skip(3).Take(splitText.Length - 1));
                 }
-                prompt = prefix + prompt;
 
                 // Encode our text first so we know how many remaining tokens we have
-                var tokens = TokenizerGpt3.Encode(prompt);
+                var tokens = TokenizerGpt3.Encode(prefix + prompt);
+
+                List<ChatMessage> messages = new List<ChatMessage>();
+                if (!string.IsNullOrWhiteSpace(prefix))
+                {
+                    messages.Add(ChatMessage.FromSystem(prefix));
+                }
+                messages.Add(ChatMessage.FromUser(prompt));
 
                 var completionResult = await openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest()
                 {
-                    Messages = new List<ChatMessage>()
-                    {
-                        ChatMessage.FromUser(prompt)
-                    },
-                    Model = Models.ChatGpt3_5Turbo,
-                    Temperature = temp
+                    Messages = messages,
+                    Model = "gpt-3.5-turbo-0613",
+                    Temperature = temp,
+                    MaxTokens = MaxTokens - tokens.Count()
                 });
                 
                 if (completionResult.Successful)
@@ -107,8 +109,12 @@ namespace botbot.Module
             {
                 return "Explain like I'm 5 years old: ";
             }
+            else if (command == "gpt_venmo")
+            {
+                return VenmoHelp.VenmoHelpMessage + "\nSurround the command in ``";
+            }
 
-            return "";
+            return string.Empty;
         }
     }
 }
