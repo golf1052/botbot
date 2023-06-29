@@ -26,7 +26,6 @@
   <ItemGroup>
     <PackageReference Include="Betalgo.OpenAI" Version="7.0.0" />
     <PackageReference Include="Flurl" Version="3.0.7" />
-    <PackageReference Include="GPT-3-Encoder-Sharp" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
     <PackageReference Include="OxyPlot.Core" Version="2.1.2" />
@@ -37,6 +36,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="MongoDb.Driver" Version="2.19.2" />
     <PackageReference Include="ThreeFourteen.AlphaVantage" Version="1.0.3" />
+    <PackageReference Include="Tiktoken" Version="1.1.0" />
     <PackageReference Include="VSLee.IEXSharp" Version="2.9.4" />
   </ItemGroup>
 
