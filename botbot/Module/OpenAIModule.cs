@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using OpenAI;
 using OpenAI.Managers;
 using OpenAI.ObjectModels.RequestModels;
+using OpenAI.ObjectModels.ResponseModels;
 
 namespace botbot.Module
 {
@@ -11,7 +12,6 @@ namespace botbot.Module
     {
         private const string EncodingName = "cl100k_base";
 
-        private const int MaxTokens = 4096;
         private readonly OpenAIService openAIService;
         private Tiktoken.Encoding encoder;
 
@@ -31,27 +31,21 @@ namespace botbot.Module
             {
                 string[] splitText = text.Split(' ');
                 string prefix = GetPrefix(splitText[1]);
-                string prompt = string.Join(" ", splitText.Skip(2).Take(splitText.Length - 1));
-                float temp = 1;
-                if (splitText[2].StartsWith("temp"))
-                {
-                    temp = float.Parse(splitText[2].Split(':')[1]);
-                    prompt = string.Join(" ", splitText.Skip(3).Take(splitText.Length - 1));
-                }
+                Args args = ParseArgs(splitText);
 
                 List<ChatMessage> messages = new List<ChatMessage>();
                 if (!string.IsNullOrWhiteSpace(prefix))
                 {
                     messages.Add(ChatMessage.FromSystem(prefix));
                 }
-                messages.Add(ChatMessage.FromUser(prompt));
+                messages.Add(ChatMessage.FromUser(args.Prompt));
 
                 var completionResult = await openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest()
                 {
                     Messages = messages,
-                    Model = "gpt-3.5-turbo-0613",
-                    Temperature = temp,
-                    MaxTokens = MaxTokens - GetTokenCount(messages)
+                    Model = args.Model,
+                    Temperature = args.Temp,
+                    MaxTokens = args.MaxTokens - GetTokenCount(messages)
                 });
                 
                 if (completionResult.Successful)
@@ -65,6 +59,8 @@ namespace botbot.Module
                         };
                     }
 
+                    string price = Pricing.GetPrice(args.Model, completionResult.Usage);
+
                     string responseMessage;
                     if (chatChoiceResponse.FinishReason == "content_filter")
                     {
@@ -72,7 +68,7 @@ namespace botbot.Module
                     }
                     else
                     {
-                        responseMessage = chatChoiceResponse.Message.Content;
+                        responseMessage = $"{chatChoiceResponse.Message.Content}\n\nPrice: ${price}";
                     }
 
                     return new ModuleResponse()
@@ -99,6 +95,100 @@ namespace botbot.Module
                 }
             }
             return new ModuleResponse();
+        }
+
+        private Args ParseArgs(string[] splitText)
+        {
+            Args args = new Args(string.Empty, 1, "gpt-3.5-turbo");
+            int numberToSkip = 2;
+            bool setMaxTokens = false;
+            foreach (var item in splitText)
+            {
+                if (item.StartsWith($"{nameof(Args.Temp)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.Temp = float.Parse(item.Split('=')[1]);
+                }
+                else if (item.StartsWith($"{nameof(Args.Model)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.Model = item.Split('=')[1];
+                }
+                else if (item.StartsWith($"{nameof(Args.MaxTokens)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.MaxTokens = int.Parse(item.Split('=')[1]);
+                }
+            }
+            args.Prompt = string.Join(" ", splitText.Skip(numberToSkip).Take(splitText.Length - 1));
+
+            if (!setMaxTokens)
+            {
+                if (args.Model.Contains("16k"))
+                {
+                    args.MaxTokens = 16384;
+                }
+                else if (args.Model.Contains("32k"))
+                {
+                    args.MaxTokens = 32768;
+                }
+                else if (args.Model == "gpt-4")
+                {
+                    args.MaxTokens = 8192;
+                }
+                else if (args.Model == "gpt-3.5-turbo")
+                {
+                    args.MaxTokens = 4096;
+                }
+            }
+            return args;
+        }
+
+        private struct Args
+        {
+            public string Prompt { get; set; }
+            public float Temp { get; set; }
+            public string Model { get; set; }
+            public int MaxTokens { get; set; }
+
+            public Args(string prompt = "", float temp = 1, string model = "gpt-3.5-turbo", int maxTokens = 4096)
+            {
+                Prompt = prompt;
+                Temp = temp;
+                Model = model;
+                MaxTokens = maxTokens;
+            }
+        }
+
+        private static class Pricing
+        {
+            public static readonly (double input, double output) gpt35 = (0.0000015, 0.000002);
+            public static readonly (double input, double output) gpt35_16k = (0.000003, 0.000004);
+            public static readonly (double input, double output) gpt4 = (0.00003, 0.00006);
+            public static readonly (double input, double output) gpt4_32k = (0.00006, 0.00012);
+
+            public static string GetPrice(string model, UsageResponse usage)
+            {
+                double price;
+                if (model.StartsWith("gpt-4-32k"))
+                {
+                    price = usage.PromptTokens * gpt4_32k.input + usage.CompletionTokens!.Value * gpt4_32k.output;
+                }
+                else if (model.StartsWith("gpt-4"))
+                {
+                    price = usage.PromptTokens * gpt4.input + usage.CompletionTokens!.Value * gpt4.output;
+                }
+                else if (model.StartsWith("gpt-3.5-turbo-16k"))
+                {
+                    price = usage.PromptTokens * gpt35_16k.input + usage.CompletionTokens!.Value * gpt35_16k.output;
+                }
+                else
+                {
+                    price = usage.PromptTokens * gpt35.input + usage.CompletionTokens!.Value * gpt35.output;
+                }
+
+                return price.ToString();
+            }
         }
 
         private int GetTokenCount(List<ChatMessage> messages)
