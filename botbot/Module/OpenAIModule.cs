@@ -118,6 +118,7 @@ namespace botbot.Module
                 {
                     numberToSkip += 1;
                     args.MaxTokens = int.Parse(item.Split('=')[1]);
+                    setMaxTokens = true;
                 }
             }
             args.Prompt = string.Join(" ", splitText.Skip(numberToSkip).Take(splitText.Length - 1));
@@ -134,7 +135,7 @@ namespace botbot.Module
                 }
                 else if (args.Model == "gpt-4")
                 {
-                    args.MaxTokens = 8192;
+                    args.MaxTokens = 8191;
                 }
                 else if (args.Model == "gpt-3.5-turbo")
                 {
