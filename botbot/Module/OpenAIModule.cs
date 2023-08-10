@@ -99,7 +99,7 @@ namespace botbot.Module
 
         private Args ParseArgs(string[] splitText)
         {
-            Args args = new Args(string.Empty, 1, "gpt-3.5-turbo");
+            Args args = new Args(string.Empty, 1, "gpt-4");
             int numberToSkip = 2;
             bool setMaxTokens = false;
             foreach (var item in splitText)
@@ -152,7 +152,7 @@ namespace botbot.Module
             public string Model { get; set; }
             public int MaxTokens { get; set; }
 
-            public Args(string prompt = "", float temp = 1, string model = "gpt-3.5-turbo", int maxTokens = 4096)
+            public Args(string prompt = "", float temp = 1, string model = "gpt-4", int maxTokens = 8191)
             {
                 Prompt = prompt;
                 Temp = temp;
