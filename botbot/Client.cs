@@ -187,6 +187,7 @@ namespace botbot
 
             attachmentModules.Add(new GooglePlayMusicModule());
             attachmentModules.Add(new HackerNewsAttachmentModule(slackChannels, settings));
+            attachmentModules.Add(new ArchiveTodayAttachmentModule());
             attachmentModules.Add(new SpotifyDirectLinkModule());
 
             foreach (var eventModule in eventModules)
