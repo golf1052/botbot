@@ -11,7 +11,7 @@ namespace botbot.Module.SlackAttachments
     {
         private readonly List<string> domains = new List<string>(new string[] {
             "nytimes.com", "wsj.com", "theatlantic.com", "bloomberg.com",
-            "businessinsider.com", "forbes.com", "economist.com"
+            "businessinsider.com", "forbes.com", "economist.com", "newyorker.com"
         });
 
         public ArchiveTodayAttachmentModule()
