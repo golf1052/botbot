@@ -46,8 +46,9 @@ namespace botbot
                     await BotBotController.StartClients(loggerFactory.CreateLogger<Client>());
                     //await BotBotController.StartDiscordClient();
                 }
-                catch (Exception)
+                catch (Exception exception)
                 {
+                    Console.WriteLine(exception.ToString());
                 }
             }
         }
