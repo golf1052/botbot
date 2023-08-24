@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using golf1052.SlackAPI.Events;
@@ -11,7 +12,7 @@ namespace botbot.Module.SlackAttachments
     {
         private readonly List<string> domains = new List<string>(new string[] {
             "nytimes.com", "wsj.com", "theatlantic.com", "bloomberg.com",
-            "businessinsider.com", "forbes.com", "economist.com", "newyorker.com"
+            "businessinsider.com", "forbes.com", "economist.com", "newyorker.com", "washingtonpost.com"
         });
 
         public ArchiveTodayAttachmentModule()
