@@ -7,6 +7,7 @@
     <AssemblyName>botbot</AssemblyName>
     <OutputType>Exe</OutputType>
     <PackageId>botbot</PackageId>
+    <LangVersion>11.0</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 

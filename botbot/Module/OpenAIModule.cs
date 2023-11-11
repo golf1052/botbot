@@ -1,10 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using golf1052.SlackAPI.BlockKit.Blocks;
 using OpenAI;
 using OpenAI.Managers;
+using OpenAI.ObjectModels;
 using OpenAI.ObjectModels.RequestModels;
 using OpenAI.ObjectModels.ResponseModels;
+using OpenAI.ObjectModels.ResponseModels.ImageResponseModel;
 
 namespace botbot.Module
 {
@@ -27,11 +30,81 @@ namespace botbot.Module
 
         public async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
-            if (text.ToLower().StartsWith("botbot gpt") || text.ToLower().StartsWith("botbot eli5"))
+            string[] splitText = text.Split(' ');
+            if (text.ToLower().StartsWith("botbot gpt-image") || text.ToLower().StartsWith("botbot gpt-img"))
             {
-                string[] splitText = text.Split(' ');
+                ImageArgs args = ParseImageArgs(splitText);
+                List<Task<ImageCreateResponse>> imageCreateTasks = new List<Task<ImageCreateResponse>>();
+                if (args.DallE3N > 1)
+                {
+                    for (int i = 0; i < args.DallE3N; i++)
+                    {
+                        imageCreateTasks.Add(openAIService.Image.CreateImage(new ImageCreateRequest()
+                        {
+                            Prompt = args.Prompt,
+                            Model = args.Model,
+                            N = args.N,
+                            Size = args.Size,
+                            Quality = args.Quality,
+                            Style = args.Style,
+                            ResponseFormat = StaticValues.ImageStatics.ResponseFormat.Url,
+                            User = userId
+                        }));
+                    }
+                }
+                else
+                {
+                    imageCreateTasks.Add(openAIService.Image.CreateImage(new ImageCreateRequest()
+                    {
+                        Prompt = args.Prompt,
+                        Model = args.Model,
+                        N = args.N,
+                        Size = args.Size,
+                        Quality = args.Quality,
+                        Style = args.Style,
+                        ResponseFormat = StaticValues.ImageStatics.ResponseFormat.Url,
+                        User = userId
+                    }));
+                }
+
+                ModuleResponse moduleResponse = new ModuleResponse();
+                var results = await Task.WhenAll(imageCreateTasks);
+                List<IBlock> blocks = new List<IBlock>();
+                for (int i = 0; i < results.Length; i++)
+                {
+                    ImageCreateResponse result = results[i];
+                    if (result.Successful)
+                    {
+                        if (result.Results.Count == 0)
+                        {
+                            blocks.Add(new Section($"{i + 1}: *No images from OpenAI*"));
+                        }
+
+                        foreach (var image in result.Results)
+                        {
+                            blocks.Add(new Image(image.Url, string.Empty));
+                        }
+                    }
+                    else
+                    {
+                        if (result.Error == null)
+                        {
+                            blocks.Add(new Section($"{i + 1}: *Unknown error*"));
+                        }
+                        else
+                        {
+                            blocks.Add(new Section($"{i + 1}: {result.Error.Code}: {result.Error.Message}"));
+                        }
+                    }
+                }
+
+                moduleResponse.Blocks = blocks;
+                return moduleResponse;
+            }
+            else if (text.ToLower().StartsWith("botbot gpt") || text.ToLower().StartsWith("botbot eli5"))
+            {
                 string prefix = GetPrefix(splitText[1]);
-                Args args = ParseArgs(splitText);
+                TextArgs args = ParseTextArgs(splitText);
 
                 List<ChatMessage> messages = new List<ChatMessage>();
                 if (!string.IsNullOrWhiteSpace(prefix))
@@ -97,24 +170,24 @@ namespace botbot.Module
             return new ModuleResponse();
         }
 
-        private Args ParseArgs(string[] splitText)
+        private TextArgs ParseTextArgs(string[] splitText)
         {
-            Args args = new Args(string.Empty, 1, "gpt-4");
+            TextArgs args = new TextArgs(string.Empty, 1, "gpt-4");
             int numberToSkip = 2;
             bool setMaxTokens = false;
             foreach (var item in splitText)
             {
-                if (item.StartsWith($"{nameof(Args.Temp)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                if (item.StartsWith($"{nameof(TextArgs.Temp)}=", System.StringComparison.InvariantCultureIgnoreCase))
                 {
                     numberToSkip += 1;
                     args.Temp = float.Parse(item.Split('=')[1]);
                 }
-                else if (item.StartsWith($"{nameof(Args.Model)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                else if (item.StartsWith($"{nameof(TextArgs.Model)}=", System.StringComparison.InvariantCultureIgnoreCase))
                 {
                     numberToSkip += 1;
                     args.Model = item.Split('=')[1];
                 }
-                else if (item.StartsWith($"{nameof(Args.MaxTokens)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                else if (item.StartsWith($"{nameof(TextArgs.MaxTokens)}=", System.StringComparison.InvariantCultureIgnoreCase))
                 {
                     numberToSkip += 1;
                     args.MaxTokens = int.Parse(item.Split('=')[1]);
@@ -142,23 +215,90 @@ namespace botbot.Module
                     args.MaxTokens = 4096;
                 }
             }
+
             return args;
         }
 
-        private struct Args
+        private ImageArgs ParseImageArgs(string[] splitText)
         {
-            public string Prompt { get; set; }
+            ImageArgs args = new ImageArgs(string.Empty, "dall-e-3", 1);
+            int numberToSkip = 2;
+            foreach (var item in splitText)
+            {
+                if (item.StartsWith($"{nameof(ImageArgs.Model)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.Model = item.Split('=')[1];
+                }
+                else if (item.StartsWith($"{nameof(ImageArgs.N)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.N = int.Parse(item.Split('=')[1]);
+                }
+                else if (item.StartsWith($"{nameof(ImageArgs.Size)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.Size = item.Split('=')[1];
+                }
+                else if (item.StartsWith($"{nameof(ImageArgs.Quality)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.Quality = item.Split('=')[1];
+                }
+                else if (item.StartsWith($"{nameof(ImageArgs.Style)}=", System.StringComparison.InvariantCultureIgnoreCase))
+                {
+                    numberToSkip += 1;
+                    args.Style = item.Split('=')[1];
+                }
+            }
+            args.Prompt = string.Join(" ", splitText.Skip(numberToSkip).Take(splitText.Length - 1));
+
+            if (args.Model == "dall-e-3" && args.N > 1)
+            {
+                args.DallE3N = args.N;
+                args.N = 1;
+            }
+
+            return args;
+        }
+
+        private class TextArgs : Args
+        {
             public float Temp { get; set; }
-            public string Model { get; set; }
             public int MaxTokens { get; set; }
 
-            public Args(string prompt = "", float temp = 1, string model = "gpt-4", int maxTokens = 8191)
+            public TextArgs(string prompt = "", float temp = 1, string model = "gpt-4", int maxTokens = 8191)
             {
                 Prompt = prompt;
                 Temp = temp;
                 Model = model;
                 MaxTokens = maxTokens;
             }
+        }
+
+        private class ImageArgs : Args
+        {
+            public int N { get; set; }
+            public string Size { get; set; }
+            public string Quality { get; set; }
+            public string Style { get; set; }
+            public int DallE3N { get; set; }
+
+            public ImageArgs(string prompt = "", string model = "dall-e-3", int n = 1, string size = "1024x1024", string quality = "standard", string style = "natural")
+            {
+                Prompt = prompt;
+                Model = model;
+                N = n;
+                Size = size;
+                Quality = quality;
+                Style = style;
+            }
+        }
+
+        private abstract class Args
+        {
+            public string Prompt { get; set; } = string.Empty;
+            public string Model { get; set; } = string.Empty;
         }
 
         private static class Pricing
