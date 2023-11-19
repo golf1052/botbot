@@ -62,7 +62,7 @@ namespace botbot
             }
 
             // Check if there are any front page items, if there are return the first one
-            SearchItem frontPageItem = hitItems.FirstOrDefault(i => i.OnFrontPage);
+            SearchItem? frontPageItem = hitItems.FirstOrDefault(i => i.OnFrontPage);
             if (frontPageItem != null)
             {
                 return frontPageItem;

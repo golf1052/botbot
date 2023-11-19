@@ -10,11 +10,13 @@ namespace botbot.Module.SlackAttachments
     {
         private List<SlackChannel> slackChannels;
         private HackerNewsApi hackerNewsApi;
+        private Dictionary<string, Queue<string>> cachedResponses;
 
         public HackerNewsAttachmentModule(List<SlackChannel> slackChannels, Settings settings) : base(settings)
         {
             this.slackChannels = slackChannels;
             hackerNewsApi = new HackerNewsApi();
+            cachedResponses = new Dictionary<string, Queue<string>>();
         }
 
         public override async Task<ModuleResponse> Handle(SlackMessage message, Attachment attachment)
@@ -32,11 +34,31 @@ namespace botbot.Module.SlackAttachments
                 {
                     return new ModuleResponse();
                 }
-                return new ModuleResponse()
+
+                ModuleResponse response = new ModuleResponse()
                 {
                     Message = hackerNewsItem.GetDisplayString(),
                     Timestamp = message.Message.ThreadTimestamp
                 };
+
+                if (!cachedResponses.ContainsKey(message.Channel))
+                {
+                    cachedResponses.Add(message.Channel, new Queue<string>());
+                }
+
+                if (!cachedResponses[message.Channel].Contains(response.Message))
+                {
+                    cachedResponses[message.Channel].Enqueue(response.Message);
+                    if (cachedResponses[message.Channel].Count > 5)
+                    {
+                        cachedResponses[message.Channel].Dequeue();
+                    }
+                    return response;
+                }
+                else
+                {
+                    return new ModuleResponse();
+                }
             }
             else
             {
