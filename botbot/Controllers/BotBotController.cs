@@ -20,6 +20,7 @@ namespace botbot.Controllers
         public static StockCommand stockCommand;
         public static PresidentApprovalCommand presidentCommand;
         public static string? HubotWorkspace;
+        public static ImageCleaner imageCleaner;
 
         static BotBotController()
         {
@@ -28,10 +29,14 @@ namespace botbot.Controllers
             httpClient = new HttpClient();
             stockCommand = new StockCommand();
             presidentCommand = new PresidentApprovalCommand();
+            imageCleaner = new ImageCleaner();
         }
 
         public static async Task StartClients(ILogger<Client> logger)
         {
+            // start image cleaner
+            _ = imageCleaner.Run();
+
             clients.Clear();
             clientTasks.Clear();
             JsonDocument settings = JsonDocument.Parse(System.IO.File.ReadAllText("settings.json"), new JsonDocumentOptions()

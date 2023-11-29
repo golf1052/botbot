@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using golf1052.SlackAPI.BlockKit.Blocks;
 using OpenAI;
@@ -16,6 +18,7 @@ namespace botbot.Module
         private const string EncodingName = "cl100k_base";
 
         private readonly OpenAIService openAIService;
+        private readonly HttpClient httpClient;
         private Tiktoken.Encoding encoder;
 
         public OpenAIModule()
@@ -25,6 +28,7 @@ namespace botbot.Module
                 ApiKey = Secrets.OpenAIApiKey,
                 Organization = Secrets.OpenAIOrganization
             });
+            httpClient = new HttpClient();
             encoder = Tiktoken.Encoding.Get(EncodingName);
         }
 
@@ -82,7 +86,23 @@ namespace botbot.Module
 
                         foreach (var image in result.Results)
                         {
-                            blocks.Add(new Image(image.Url, string.Empty));
+                            HttpResponseMessage imageDownloadResponse = await httpClient.GetAsync(image.Url);
+                            byte[] imageBytes = await imageDownloadResponse.Content.ReadAsByteArrayAsync();
+                            string tempFile = System.IO.Path.GetTempFileName();
+                            string tempFileName = System.IO.Path.GetFileNameWithoutExtension(tempFile);
+                            System.IO.File.Delete(tempFile);
+                            System.IO.File.WriteAllBytes($"../../images/{tempFileName}", imageBytes);
+                            string imageUrl = string.Empty;
+                            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                            {
+                                imageUrl = image.Url;
+                            }
+                            else
+                            {
+                                imageUrl = $"https://images.golf1052.com/{tempFileName}";
+                            }
+
+                            blocks.Add(new Image(imageUrl, string.Empty));
                         }
                     }
                     else
