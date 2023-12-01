@@ -35,7 +35,7 @@ namespace botbot.Module
         public async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             string[] splitText = text.Split(' ');
-            if (text.ToLower().StartsWith("botbot gpt-image") || text.ToLower().StartsWith("botbot gpt-img"))
+            if (text.ToLower().StartsWith("botbot gpt-image") || text.ToLower().StartsWith("botbot gpt-img") || text.ToLower().StartsWith("botbot gptimg"))
             {
                 ImageArgs args = ParseImageArgs(splitText);
                 List<Task<ImageCreateResponse>> imageCreateTasks = new List<Task<ImageCreateResponse>>();
