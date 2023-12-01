@@ -174,7 +174,7 @@ namespace botbot
             messageModules.Add(new ElectionModelModule());
             messageModules.Add(new VersionModule());
             messageModules.Add(new HackerNewsMessageModule());
-            messageModules.Add(new OpenAIModule());
+            messageModules.Add(new OpenAIModule(slackCore, SendSlackMessage));
             messageModules.Add(new MockModule());
 
             eventModules.Add(new TypingModule(slackCore, SendMessage));

@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using golf1052.SlackAPI;
 using golf1052.SlackAPI.BlockKit.Blocks;
 using OpenAI;
 using OpenAI.Managers;
@@ -13,7 +14,7 @@ using OpenAI.ObjectModels.ResponseModels.ImageResponseModel;
 
 namespace botbot.Module
 {
-    public class OpenAIModule : IMessageModule
+    public class OpenAIModule : SlackMessageModule
     {
         private const string EncodingName = "cl100k_base";
 
@@ -21,7 +22,7 @@ namespace botbot.Module
         private readonly HttpClient httpClient;
         private Tiktoken.Encoding encoder;
 
-        public OpenAIModule()
+        public OpenAIModule(SlackCore slackCore, Func<string, string, string?, Task> SendSlackMessage) : base(slackCore, SendSlackMessage)
         {
             openAIService = new OpenAIService(new OpenAiOptions()
             {
@@ -32,7 +33,7 @@ namespace botbot.Module
             encoder = Tiktoken.Encoding.Get(EncodingName);
         }
 
-        public async Task<ModuleResponse> Handle(string text, string userId, string channel)
+        public override async Task<ModuleResponse> Handle(string text, string userId, string channel)
         {
             string[] splitText = text.Split(' ');
             if (text.ToLower().StartsWith("botbot gpt-image") || text.ToLower().StartsWith("botbot gpt-img") || text.ToLower().StartsWith("botbot gptimg"))
@@ -88,21 +89,10 @@ namespace botbot.Module
                         {
                             HttpResponseMessage imageDownloadResponse = await httpClient.GetAsync(image.Url);
                             byte[] imageBytes = await imageDownloadResponse.Content.ReadAsByteArrayAsync();
-                            string tempFile = System.IO.Path.GetTempFileName();
-                            string tempFileName = System.IO.Path.GetFileNameWithoutExtension(tempFile);
-                            System.IO.File.Delete(tempFile);
-                            System.IO.File.WriteAllBytes($"../../images/{tempFileName}", imageBytes);
-                            string imageUrl = string.Empty;
-                            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                            {
-                                imageUrl = image.Url;
-                            }
-                            else
-                            {
-                                imageUrl = $"https://images.golf1052.com/{tempFileName}";
-                            }
-
-                            blocks.Add(new Image(imageUrl, string.Empty));
+                            // From https://stackoverflow.com/a/13617375/6681022
+                            char[] invalids = System.IO.Path.GetInvalidFileNameChars();
+                            string filename = string.Join("_", args.Prompt.Split(invalids, StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+                            await slackCore.FilesUpload(imageBytes, $"{filename}.png", args.Prompt, new List<string>() { channel }, "png");
                         }
 
                         if (result.Results.Count != 0) {
