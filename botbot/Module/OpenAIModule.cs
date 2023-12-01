@@ -104,6 +104,11 @@ namespace botbot.Module
 
                             blocks.Add(new Image(imageUrl, string.Empty));
                         }
+
+                        if (result.Results.Count != 0) {
+                            string price = Pricing.GetImagePrice(args.N, args.Quality, args.Size);
+                            blocks.Add(new Section($"Price: ${price}"));
+                        }
                     }
                     else
                     {
@@ -349,6 +354,27 @@ namespace botbot.Module
                 }
 
                 return price.ToString();
+            }
+
+            public static string GetImagePrice(int n, string quality, string size)
+            {
+                double basePrice = 0.0;
+
+                if (quality.ToLower().StartsWith("standard")) {
+                    if (size.ToLower().StartsWith("1024x1024")) {
+                        basePrice = 0.04;
+                    } else {
+                        basePrice = 0.08;
+                    }
+                } else if (quality.ToLower().StartsWith("hd")) {
+                    if (size.ToLower().StartsWith("1024x1024")) {
+                        basePrice = 0.08;
+                    } else {
+                        basePrice = 0.12;
+                    }
+                }
+
+                return (basePrice * (double) n).ToString();
             }
         }
 
