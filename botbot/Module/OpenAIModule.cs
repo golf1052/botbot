@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using golf1052.SlackAPI;
 using golf1052.SlackAPI.BlockKit.Blocks;
+using Newtonsoft.Json.Linq;
 using OpenAI;
 using OpenAI.Managers;
 using OpenAI.ObjectModels;
@@ -22,7 +24,11 @@ namespace botbot.Module
         private readonly HttpClient httpClient;
         private Tiktoken.Encoding encoder;
 
-        public OpenAIModule(SlackCore slackCore, Func<string, string, string?, Task> SendSlackMessage) : base(slackCore, SendSlackMessage)
+        public OpenAIModule(SlackCore slackCore,
+            Func<string, string, string?, Task> SendSlackMessage,
+            Func<string, string, string?, Task<JObject>> SendPostMessage,
+            Func<string, string, string, Task<JObject>> SendUpdateMessage) :
+            base(slackCore, SendSlackMessage, SendPostMessage, SendUpdateMessage)
         {
             openAIService = new OpenAIService(new OpenAiOptions()
             {
@@ -128,59 +134,128 @@ namespace botbot.Module
                 }
                 messages.Add(ChatMessage.FromUser(args.Prompt));
 
-                var completionResult = await openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest()
+                //var completionResult = await openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest()
+                //{
+                //    Messages = messages,
+                //    Model = args.Model,
+                //    Temperature = args.Temp,
+                //    MaxTokens = args.MaxTokens - GetTokenCount(messages)
+                //});
+
+                var completionResult2 = openAIService.ChatCompletion.CreateCompletionAsStream(new ChatCompletionCreateRequest()
                 {
                     Messages = messages,
                     Model = args.Model,
                     Temperature = args.Temp,
                     MaxTokens = args.MaxTokens - GetTokenCount(messages)
                 });
-                
-                if (completionResult.Successful)
+
+                bool streamStarted = false;
+                JObject? lastSentMessage = null;
+
+                await foreach (var completion in completionResult2)
                 {
-                    var chatChoiceResponse = completionResult.Choices.FirstOrDefault();
-                    if (chatChoiceResponse == null)
+                    if (completion.Successful)
                     {
-                        return new ModuleResponse()
+                        var chatChoiceResponse = completion.Choices.FirstOrDefault();
+                        if (chatChoiceResponse == null)
                         {
-                            Message = "*No responses from OpenAI*"
-                        };
-                    }
+                            return new ModuleResponse()
+                            {
+                                Message = "*No responses from OpenAI*"
+                            };
+                        }
 
-                    string price = Pricing.GetPrice(args.Model, completionResult.Usage);
+                        string? content = chatChoiceResponse.Delta.Content;
+                        if (!streamStarted && string.IsNullOrWhiteSpace(content))
+                        {
+                            continue;
+                        }
 
-                    string responseMessage;
-                    if (chatChoiceResponse.FinishReason == "content_filter")
-                    {
-                        responseMessage = $"**NOTE: OpenAI omitted content due to a flag from OpenAI's content filters** {chatChoiceResponse.Message.Content}";
+                        if (!streamStarted)
+                        {
+                            lastSentMessage = await SendPostMessage(chatChoiceResponse.Delta.Content!, channel);
+                            streamStarted = true;
+                        }
+                        else
+                        {
+                            if (chatChoiceResponse.FinishReason == "stop")
+                            {
+                                return new ModuleResponse();
+                            }
+                            else
+                            {
+                                string timestamp = (string)lastSentMessage!["ts"]!;
+                                string previousMessage = (string)lastSentMessage["message"]!["text"]!;
+                                string message = previousMessage + chatChoiceResponse.Delta.Content!;
+                                lastSentMessage = await SendUpdateMessage(message, channel, timestamp);
+                            }
+                        }
                     }
                     else
                     {
-                        responseMessage = $"{chatChoiceResponse.Message.Content}\n\nPrice: ${price}";
+                        if (completion.Error == null)
+                        {
+                            return new ModuleResponse()
+                            {
+                                Message = "*Unknown error*"
+                            };
+                        }
+                        else
+                        {
+                            return new ModuleResponse()
+                            {
+                                Message = $"{completion.Error.Code}: {completion.Error.Message}"
+                            };
+                        }
                     }
+                }
 
-                    return new ModuleResponse()
-                    {
-                        Message = responseMessage
-                    };
-                }
-                else
-                {
-                    if (completionResult.Error == null)
-                    {
-                        return new ModuleResponse()
-                        {
-                            Message = "*Unknown error*"
-                        };
-                    }
-                    else
-                    {
-                        return new ModuleResponse()
-                        {
-                            Message = $"{completionResult.Error.Code}: {completionResult.Error.Message}"
-                        };
-                    }
-                }
+                //if (completionResult.Successful)
+                //{
+                //    var chatChoiceResponse = completionResult.Choices.FirstOrDefault();
+                //    if (chatChoiceResponse == null)
+                //    {
+                //        return new ModuleResponse()
+                //        {
+                //            Message = "*No responses from OpenAI*"
+                //        };
+                //    }
+
+                //    string price = Pricing.GetPrice(args.Model, completionResult.Usage);
+
+                //    string responseMessage;
+                //    if (chatChoiceResponse.FinishReason == "content_filter")
+                //    {
+                //        responseMessage = $"**NOTE: OpenAI omitted content due to a flag from OpenAI's content filters** {chatChoiceResponse.Message.Content}";
+                //    }
+                //    else
+                //    {
+                //        responseMessage = $"{chatChoiceResponse.Message.Content}\n\nPrice: ${price}";
+                //    }
+
+                //    return new ModuleResponse()
+                //    {
+                //        Message = responseMessage
+                //    };
+                //}
+                //else
+                //{
+                //    if (completionResult.Error == null)
+                //    {
+                //        return new ModuleResponse()
+                //        {
+                //            Message = "*Unknown error*"
+                //        };
+                //    }
+                //    else
+                //    {
+                //        return new ModuleResponse()
+                //        {
+                //            Message = $"{completionResult.Error.Code}: {completionResult.Error.Message}"
+                //        };
+                //    }
+                //}
             }
             return new ModuleResponse();
         }

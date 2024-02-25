@@ -6,12 +6,17 @@ using golf1052.SlackAPI;
 using golf1052.SlackAPI.Events;
 using golf1052.SlackAPI.Objects;
 using golf1052.SlackAPI.Other;
+using Newtonsoft.Json.Linq;
 
 namespace botbot.Module
 {
     public class ReactionsModule : SlackMessageModule
     {
-        public ReactionsModule(SlackCore slackCore, Func<string, string, string?, Task> SendSlackMessage) : base(slackCore, SendSlackMessage)
+        public ReactionsModule(SlackCore slackCore,
+            Func<string, string, string?, Task> SendSlackMessage,
+            Func<string, string, string?, Task<JObject>> SendPostMessage,
+            Func<string, string, string, Task<JObject>> SendUpdateMessage) :
+            base(slackCore, SendSlackMessage, SendPostMessage, SendUpdateMessage)
         {
         }
 

@@ -168,13 +168,13 @@ namespace botbot
             messageModules.Add(new PingModule());
             messageModules.Add(new HiModule());
             messageModules.Add(new StockModule());
-            messageModules.Add(new ReactionsModule(slackCore, SendSlackMessage));
+            messageModules.Add(new ReactionsModule(slackCore, SendSlackMessage, SendPostMessage, SendUpdateMessage));
             // messageModules.Add(new NewReleasesModule());
             messageModules.Add(new PresidentApprovalModule());
             messageModules.Add(new ElectionModelModule());
             messageModules.Add(new VersionModule());
             messageModules.Add(new HackerNewsMessageModule());
-            messageModules.Add(new OpenAIModule(slackCore, SendSlackMessage));
+            messageModules.Add(new OpenAIModule(slackCore, SendSlackMessage, SendPostMessage, SendUpdateMessage));
             messageModules.Add(new MockModule());
 
             eventModules.Add(new TypingModule(slackCore, SendMessage));
@@ -427,7 +427,7 @@ namespace botbot
             else
             {
                 // Taken from https://gist.github.com/terrajobst/6e1bea5bec4591edd7c5fe5416ce7f56#file-sample6-cs
-                // Explaination: https://msdn.microsoft.com/en-us/magazine/mt814808.aspx?f=255&MSPPError=-2147217396
+                // Explanation: https://msdn.microsoft.com/en-us/magazine/mt814808.aspx?f=255&MSPPError=-2147217396
                 return string.Create((int)buffer.Length, buffer, (span, sequence) =>
                 {
                     foreach (var segment in sequence)
@@ -820,6 +820,16 @@ namespace botbot
                 o["thread_ts"] = threadTimestamp;
             }
             await SendMessage(o.ToString(Formatting.None));
+        }
+
+        public async Task<JObject> SendPostMessage(string message, string channel, string? threadTimestamp)
+        {
+            return await slackCore.ChatPostMessage(message, channel, true, threadTs: threadTimestamp);
+        }
+
+        public async Task<JObject> SendUpdateMessage(string message, string channel, string timestamp)
+        {
+            return await slackCore.ChatUpdate(message, channel, timestamp, true);
         }
 
         public async Task SendBlockMessage(List<IBlock> blocks, string channel, string? threadTimestamp)
