@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.IO.Pipelines;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using golf1052.SlackAPI;
 using golf1052.SlackAPI.BlockKit.Blocks;
@@ -134,15 +135,7 @@ namespace botbot.Module
                 }
                 messages.Add(ChatMessage.FromUser(args.Prompt));
 
-                //var completionResult = await openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest()
-                //{
-                //    Messages = messages,
-                //    Model = args.Model,
-                //    Temperature = args.Temp,
-                //    MaxTokens = args.MaxTokens - GetTokenCount(messages)
-                //});
-
-                var completionResult2 = openAIService.ChatCompletion.CreateCompletionAsStream(new ChatCompletionCreateRequest()
+                var completionResult = openAIService.ChatCompletion.CreateCompletionAsStream(new ChatCompletionCreateRequest()
                 {
                     Messages = messages,
                     Model = args.Model,
@@ -153,109 +146,122 @@ namespace botbot.Module
                 bool streamStarted = false;
                 JObject? lastSentMessage = null;
 
-                await foreach (var completion in completionResult2)
-                {
-                    if (completion.Successful)
-                    {
-                        var chatChoiceResponse = completion.Choices.FirstOrDefault();
-                        if (chatChoiceResponse == null)
-                        {
-                            return new ModuleResponse()
-                            {
-                                Message = "*No responses from OpenAI*"
-                            };
-                        }
+                Pipe pipe = new Pipe();
 
-                        string? content = chatChoiceResponse.Delta.Content;
+                async Task<ModuleResponse> FillPipe(PipeWriter writer)
+                {
+                    try
+                    {
+                        await foreach (var completion in completionResult)
+                        {
+                            if (completion.Successful)
+                            {
+                                var chatChoiceResponse = completion.Choices.FirstOrDefault();
+                                if (chatChoiceResponse == null)
+                                {
+                                    return new ModuleResponse()
+                                    {
+                                        Message = "*No responses from OpenAI*"
+                                    };
+                                }
+
+                                string? content = chatChoiceResponse.Delta.Content;
+                                if (content != null)
+                                {
+                                    byte[] bytes = Encoding.UTF8.GetBytes(content);
+                                    await writer.WriteAsync(bytes);
+                                    // Loop is tight enough that we have to manually insert a delay so the reader can run.
+                                    await Task.Delay(1);
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(chatChoiceResponse.FinishReason))
+                                {
+                                    if (chatChoiceResponse.FinishReason == "stop")
+                                    {
+                                        return new ModuleResponse();
+                                    }
+                                    else if (chatChoiceResponse.FinishReason == "content_filter")
+                                    {
+                                        return new ModuleResponse()
+                                        {
+                                            Message = "**NOTE: OpenAI omitted content due to a flag from OpenAI's content filters**"
+                                        };
+                                    }
+                                    else
+                                    {
+                                        return new ModuleResponse()
+                                        {
+                                            Message = $"Unknown finish reason: {chatChoiceResponse.FinishReason}"
+                                        };
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if (completion.Error == null)
+                                {
+                                    return new ModuleResponse()
+                                    {
+                                        Message = "*Unknown error*"
+                                    };
+                                }
+                                else
+                                {
+                                    return new ModuleResponse()
+                                    {
+                                        Message = $"{completion.Error.Code}: {completion.Error.Message}"
+                                    };
+                                }
+                            }
+                        }
+                        return new ModuleResponse();
+                    }
+                    finally
+                    {
+                        await writer.CompleteAsync();
+                    }
+                }
+
+                async Task<ModuleResponse> ReadPipe(PipeReader reader)
+                {
+                    while (true)
+                    {
+                        ReadResult readResult = await reader.ReadAsync();
+                        var buffer = readResult.Buffer;
+                        string content = Encoding.UTF8.GetString(buffer);
                         if (!streamStarted && string.IsNullOrWhiteSpace(content))
                         {
                             continue;
                         }
-
-                        if (!streamStarted)
+                        
+                        if (!streamStarted && !string.IsNullOrWhiteSpace(content))
                         {
-                            lastSentMessage = await SendPostMessage(chatChoiceResponse.Delta.Content!, channel);
+                            lastSentMessage = await SendPostMessage(content, channel);
                             streamStarted = true;
                         }
                         else
                         {
-                            if (chatChoiceResponse.FinishReason == "stop")
-                            {
-                                return new ModuleResponse();
-                            }
-                            else
-                            {
-                                string timestamp = (string)lastSentMessage!["ts"]!;
-                                string previousMessage = (string)lastSentMessage["message"]!["text"]!;
-                                string message = previousMessage + chatChoiceResponse.Delta.Content!;
-                                lastSentMessage = await SendUpdateMessage(message, channel, timestamp);
-                            }
+                            string timestamp = (string)lastSentMessage!["ts"]!;
+                            string message = content;
+                            lastSentMessage = await SendUpdateMessage(message, channel, timestamp);
+                        }
+
+                        reader.AdvanceTo(buffer.Start, buffer.End);
+                        if (readResult.IsCompleted)
+                        {
+                            break;
                         }
                     }
-                    else
-                    {
-                        if (completion.Error == null)
-                        {
-                            return new ModuleResponse()
-                            {
-                                Message = "*Unknown error*"
-                            };
-                        }
-                        else
-                        {
-                            return new ModuleResponse()
-                            {
-                                Message = $"{completion.Error.Code}: {completion.Error.Message}"
-                            };
-                        }
-                    }
+
+                    await reader.CompleteAsync();
+                    return new ModuleResponse();
                 }
 
-                //if (completionResult.Successful)
-                //{
-                //    var chatChoiceResponse = completionResult.Choices.FirstOrDefault();
-                //    if (chatChoiceResponse == null)
-                //    {
-                //        return new ModuleResponse()
-                //        {
-                //            Message = "*No responses from OpenAI*"
-                //        };
-                //    }
+                Task<ModuleResponse> writing = FillPipe(pipe.Writer);
+                Task<ModuleResponse> reading = ReadPipe(pipe.Reader);
 
-                //    string price = Pricing.GetPrice(args.Model, completionResult.Usage);
-
-                //    string responseMessage;
-                //    if (chatChoiceResponse.FinishReason == "content_filter")
-                //    {
-                //        responseMessage = $"**NOTE: OpenAI omitted content due to a flag from OpenAI's content filters** {chatChoiceResponse.Message.Content}";
-                //    }
-                //    else
-                //    {
-                //        responseMessage = $"{chatChoiceResponse.Message.Content}\n\nPrice: ${price}";
-                //    }
-
-                //    return new ModuleResponse()
-                //    {
-                //        Message = responseMessage
-                //    };
-                //}
-                //else
-                //{
-                //    if (completionResult.Error == null)
-                //    {
-                //        return new ModuleResponse()
-                //        {
-                //            Message = "*Unknown error*"
-                //        };
-                //    }
-                //    else
-                //    {
-                //        return new ModuleResponse()
-                //        {
-                //            Message = $"{completionResult.Error.Code}: {completionResult.Error.Message}"
-                //        };
-                //    }
-                //}
+                ModuleResponse[] results = await Task.WhenAll(writing, reading);
+                return results[0];
             }
             return new ModuleResponse();
         }
