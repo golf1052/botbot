@@ -231,6 +231,7 @@ namespace botbot.Module
                         string content = Encoding.UTF8.GetString(buffer);
                         if (!streamStarted && string.IsNullOrWhiteSpace(content))
                         {
+                            reader.AdvanceTo(buffer.Start, buffer.End);
                             continue;
                         }
                         
@@ -307,6 +308,10 @@ namespace botbot.Module
                     args.MaxTokens = 8191;
                 }
                 else if (args.Model == "gpt-3.5-turbo")
+                {
+                    args.MaxTokens = 4096;
+                }
+                else if (args.Model == "gpt-4o")
                 {
                     args.MaxTokens = 4096;
                 }
