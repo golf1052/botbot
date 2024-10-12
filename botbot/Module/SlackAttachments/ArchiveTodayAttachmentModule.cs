@@ -29,12 +29,18 @@ namespace botbot.Module.SlackAttachments
 
             string urlLower = url.ToLower();
 
+            if (urlLower.Contains("archive.today"))
+            {
+                return Task.FromResult(new ModuleResponse());
+            }
+
             foreach (var domain in domains) 
             {
-                if (urlLower.Contains(domain)) {
+                if (urlLower.Contains(domain)) 
+                {
                     return Task.FromResult(new ModuleResponse() 
                     {
-                        Message = "Paywall bypass: https://archive.today/" + url,
+                        Message = $"Paywall bypass: https://archive.today/{url}",
                         Timestamp = message.Message.ThreadTimestamp
                     });
                 }
