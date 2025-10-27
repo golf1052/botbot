@@ -60,6 +60,7 @@ namespace botbot.Controllers
                 }
                 Client client = new Client(workspaceSettings, logger);
                 JsonDocument connectionInfo = await client.GetConnectionInfo();
+                // Need to upgrade to new Slack apps
                 string teamId = connectionInfo.RootElement.GetProperty("team").GetProperty("id").GetString();
                 if (workspaceSettings.HubotEnabled)
                 {

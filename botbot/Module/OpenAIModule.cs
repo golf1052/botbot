@@ -19,11 +19,9 @@ namespace botbot.Module
 {
     public class OpenAIModule : SlackMessageModule
     {
-        private const string EncodingName = "cl100k_base";
-
         private readonly OpenAIService openAIService;
         private readonly HttpClient httpClient;
-        private Tiktoken.Encoding encoder;
+        private Tiktoken.Encoder encoder;
 
         public OpenAIModule(SlackCore slackCore,
             Func<string, string, string?, Task> SendSlackMessage,
@@ -37,7 +35,7 @@ namespace botbot.Module
                 Organization = Secrets.OpenAIOrganization
             });
             httpClient = new HttpClient();
-            encoder = Tiktoken.Encoding.Get(EncodingName);
+            encoder = new Tiktoken.Encoder(new Tiktoken.Encodings.Cl100KBase());
         }
 
         public override async Task<ModuleResponse> Handle(string text, string userId, string channel)
